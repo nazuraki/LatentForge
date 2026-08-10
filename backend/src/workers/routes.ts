@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { InvalidTransitionError, type JobStore } from '../jobs/store.ts'
+import type { AssetStore } from '../assets/store.ts'
+import { InvalidTransitionError, type JobOutput, type JobStore } from '../jobs/store.ts'
 import type { WorkerRegistration, WorkerStore } from './store.ts'
 
 const registerSchema = {
@@ -22,11 +23,25 @@ const resultSchema = {
     properties: {
       status: { type: 'string', enum: ['succeeded', 'failed'] },
       error: { type: 'string' },
+      images: { type: 'array', items: { type: 'string', contentEncoding: 'base64' } },
+      seed: { type: 'integer', minimum: 0 },
     },
   },
 } as const
 
-export function workerRoutes(app: FastifyInstance, workers: WorkerStore, jobs: JobStore) {
+interface ResultBody {
+  status: 'succeeded' | 'failed'
+  error?: string
+  images?: string[]
+  seed?: number
+}
+
+export function workerRoutes(
+  app: FastifyInstance,
+  workers: WorkerStore,
+  jobs: JobStore,
+  assets: AssetStore,
+) {
   app.post<{ Body: WorkerRegistration }>(
     '/api/workers',
     { schema: registerSchema },
@@ -50,7 +65,7 @@ export function workerRoutes(app: FastifyInstance, workers: WorkerStore, jobs: J
     return job
   })
 
-  app.post<{ Params: { id: string; jobId: string }; Body: { status: 'succeeded' | 'failed'; error?: string } }>(
+  app.post<{ Params: { id: string; jobId: string }; Body: ResultBody }>(
     '/api/workers/:id/jobs/:jobId/result',
     { schema: resultSchema },
     async (req, reply) => {
@@ -61,8 +76,25 @@ export function workerRoutes(app: FastifyInstance, workers: WorkerStore, jobs: J
       if (job.workerId !== worker.id) {
         return reply.code(403).send({ error: 'job is not assigned to this worker' })
       }
+      if (job.status !== 'running') {
+        return reply
+          .code(409)
+          .send({ error: `cannot transition job from ${job.status} to ${req.body.status}` })
+      }
+
+      let output: JobOutput | undefined
+      if (req.body.status === 'succeeded' && req.body.images?.length) {
+        const images: string[] = []
+        for (const [i, b64] of req.body.images.entries()) {
+          const name = `${job.id}-${i}.png`
+          await assets.save(name, Buffer.from(b64, 'base64'))
+          images.push(`/api/assets/${name}`)
+        }
+        output = { images, seed: req.body.seed }
+      }
+
       try {
-        return jobs.transition(job.id, req.body.status, req.body.error)
+        return jobs.transition(job.id, req.body.status, { error: req.body.error, output })
       } catch (err) {
         if (err instanceof InvalidTransitionError) {
           return reply.code(409).send({ error: err.message })

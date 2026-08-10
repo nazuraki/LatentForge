@@ -9,11 +9,19 @@ export interface JobRequest {
   params?: Record<string, unknown>
 }
 
+export interface JobOutput {
+  /** Asset URLs, e.g. /api/assets/<file>. */
+  images: string[]
+  /** The seed actually used, for reproducibility when the request left it random. */
+  seed?: number
+}
+
 export interface Job {
   id: string
   status: JobStatus
   request: JobRequest
   workerId?: string
+  output?: JobOutput
   error?: string
   createdAt: string
   updatedAt: string
@@ -65,14 +73,15 @@ export class JobStore {
     return undefined
   }
 
-  transition(id: string, to: JobStatus, error?: string): Job {
+  transition(id: string, to: JobStatus, extra: { error?: string; output?: JobOutput } = {}): Job {
     const job = this.jobs.get(id)
     if (!job) throw new JobNotFoundError(id)
     if (!TRANSITIONS[job.status].includes(to)) {
       throw new InvalidTransitionError(job.status, to)
     }
     job.status = to
-    if (error !== undefined) job.error = error
+    if (extra.error !== undefined) job.error = extra.error
+    if (extra.output !== undefined) job.output = extra.output
     job.updatedAt = new Date().toISOString()
     return job
   }

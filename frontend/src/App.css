@@ -91,6 +91,15 @@ main section {
   font-weight: 500;
 }
 
+.thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
 .prompt-cell {
   max-width: 20rem;
   overflow: hidden;

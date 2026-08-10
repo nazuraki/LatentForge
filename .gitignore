@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Stored assets (generated images)
+backend/data/
+
 # Build output
 dist/
 dist-ssr/

@@ -7,11 +7,17 @@ export interface JobRequest {
   params?: Record<string, unknown>
 }
 
+export interface JobOutput {
+  images: string[]
+  seed?: number
+}
+
 export interface Job {
   id: string
   status: JobStatus
   request: JobRequest
   workerId?: string
+  output?: JobOutput
   error?: string
   createdAt: string
   updatedAt: string
