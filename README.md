@@ -69,9 +69,10 @@ curl -fsSL https://raw.githubusercontent.com/nazuraki/LatentForge/main/install.s
 ```
 
 This pulls the image, starts the stack, and prints the URL. It prompts for the install
-directory (Enter accepts `~/latentforge`; non-interactive runs skip the prompt — seed the
-default with `LATENTFORGE_HOME`, and the port with `LATENTFORGE_PORT`). No configuration
-files: on first visit the
+directory (Enter accepts `~/latentforge`) and whether to include the
+[containerized GPU worker](#containerized-worker); non-interactive runs skip the prompts —
+seed the defaults with `LATENTFORGE_HOME`, `LATENTFORGE_PORT`, and `LATENTFORGE_WORKER=1`.
+No configuration files: on first visit the
 UI walks through setup — it generates the worker token and stores it in the data volume.
 Until setup completes, worker endpoints refuse requests (they are never open in production).
 First visitor claims setup, so finish it right after installing. Re-running the installer
@@ -111,7 +112,18 @@ Docker), the worker can run as a container next to the stack instead — one man
 surface for restarts, logs, and metrics. Requires the NVIDIA driver and
 [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 on the host, plus `LATENTFORGE_WORKER_TOKEN` in `.env` (the container can't read the
-token from the data volume, so the env var is not optional here):
+token from the data volume, so the env var is not optional here).
+
+**Via the installer** (production): answer `y` to the worker prompt, or set
+`LATENTFORGE_WORKER=1` for non-interactive runs. The installer pulls the published
+`ghcr.io/nazuraki/latentforge-worker` image, resolves the token
+(`LATENTFORGE_WORKER_TOKEN`, else `~/.latentforge/token` from a previous host-side
+worker install, else a prompt) into `.env`, and records the choice as
+`COMPOSE_PROFILES=worker` — so re-running the installer updates both images without
+re-asking, and plain `docker compose` commands in the install directory include the
+worker automatically.
+
+**From a checkout** (builds the image locally):
 
 ```sh
 just up-worker    # = docker compose --profile worker up -d --build
