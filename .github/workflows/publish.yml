@@ -39,3 +39,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # Worker image: amd64 only — it targets CUDA hosts, and the base image
+      # (pytorch runtime) is x86_64.
+      - uses: docker/metadata-action@v5
+        id: worker-meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/latentforge-worker
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=sha
+      - uses: docker/build-push-action@v6
+        with:
+          context: worker
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.worker-meta.outputs.tags }}
+          labels: ${{ steps.worker-meta.outputs.labels }}
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker

@@ -1,0 +1,7 @@
+# Keep checkpoints and local build/venv state out of the image build context —
+# models/ alone can be many GB.
+models/
+.venv/
+__pycache__/
+*.egg-info/
+Dockerfile
