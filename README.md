@@ -23,6 +23,15 @@ This starts the frontend dev server (Vite) at the URL it prints (default `http:/
 Run `just dev-backend` in another terminal to start the API server (Fastify, default
 `http://localhost:3001`); the frontend dev server proxies `/api` requests to it.
 
+To actually execute jobs, run a worker (requires Python 3.14 and, once, `just worker-setup`):
+
+```sh
+just worker
+```
+
+By default it discovers `.safetensors` checkpoints in Stability Matrix's
+`Models/StableDiffusion` directory; pass `--models-dir` to point elsewhere.
+
 ## Development
 
 | Command          | What it does                          |
@@ -38,6 +47,7 @@ Run `just dev-backend` in another terminal to start the API server (Fastify, def
 
 - `frontend/` — React (Vite + TypeScript) web app
 - `backend/` — Fastify (Node + TypeScript) API server
+- `worker/` — Python worker running local diffusion inference (PyTorch + diffusers)
 
 ## License
 
