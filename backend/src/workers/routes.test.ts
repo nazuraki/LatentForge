@@ -125,3 +125,44 @@ describe('workers API', () => {
     expect(res.statusCode).toBe(404)
   })
 })
+
+describe('worker endpoint auth', () => {
+  const tokenApp = () => buildApp({}, { workerToken: 'secret' })
+
+  it('rejects registration without or with a wrong token', async () => {
+    const app = tokenApp()
+    const noHeader = await app.inject({
+      method: 'POST',
+      url: '/api/workers',
+      payload: { name: 'gpu-1' },
+    })
+    expect(noHeader.statusCode).toBe(401)
+    const wrong = await app.inject({
+      method: 'POST',
+      url: '/api/workers',
+      payload: { name: 'gpu-1' },
+      headers: { authorization: 'Bearer nope' },
+    })
+    expect(wrong.statusCode).toBe(401)
+  })
+
+  it('accepts worker calls with the token; worker list stays open', async () => {
+    const app = tokenApp()
+    const headers = { authorization: 'Bearer secret' }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workers',
+      payload: { name: 'gpu-1' },
+      headers,
+    })
+    expect(res.statusCode).toBe(201)
+    const heartbeat = await app.inject({
+      method: 'POST',
+      url: `/api/workers/${res.json().id}/heartbeat`,
+      headers,
+    })
+    expect(heartbeat.statusCode).toBe(200)
+    const list = await app.inject({ method: 'GET', url: '/api/workers' })
+    expect(list.statusCode).toBe(200)
+  })
+})

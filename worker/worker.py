@@ -35,6 +35,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--name", default=socket.gethostname())
     parser.add_argument("--poll-interval", type=float, default=2.0)
+    parser.add_argument(
+        "--token",
+        default=os.environ.get("LATENTFORGE_WORKER_TOKEN"),
+        help="shared bearer token for worker endpoints (default: LATENTFORGE_WORKER_TOKEN)",
+    )
     return parser.parse_args()
 
 
@@ -108,9 +113,11 @@ def generate(pipelines: PipelineCache, checkpoint: Path, request: dict) -> tuple
 
 
 class Backend:
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, token: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
+        if token:  # one header on the session covers register, claim, and result
+            self.session.headers["Authorization"] = f"Bearer {token}"
         self.worker_id: str | None = None
 
     def register(self, name: str, models: list[str]) -> None:
@@ -178,7 +185,7 @@ def main() -> None:
     device = pick_device()
     log.info("device: %s", device)
 
-    backend = Backend(args.backend_url)
+    backend = Backend(args.backend_url, args.token)
     backend.register(args.name, list(models))
     pipelines = PipelineCache(device)
 

@@ -10,7 +10,17 @@ audience.
 - [Node.js](https://nodejs.org/) 24 (LTS)
 - [just](https://github.com/casey/just)
 
-No environment variables are required yet.
+### Environment variables
+
+| Variable                   | Default             | Purpose                                                                                          |
+| -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
+| `PORT`                     | `3001`              | Backend listen port                                                                              |
+| `LATENTFORGE_DATA_DIR`     | in-memory + `backend/data/assets` | Data root: SQLite DB at `<dir>/latentforge.db`, images under `<dir>/assets`        |
+| `LATENTFORGE_WORKER_TOKEN` | unset (open)        | Shared bearer token required on worker endpoints; **required** when `NODE_ENV=production`        |
+| `LATENTFORGE_STATIC_DIR`   | unset               | Built frontend dir; if it exists, the backend serves it with SPA fallback                        |
+| `LATENTFORGE_MODELS_DIR`   | `worker/models`     | Worker checkpoint directory                                                                      |
+
+None are required for local development.
 
 ## Quickstart
 
@@ -43,6 +53,32 @@ nonstandard setups set `LATENTFORGE_MODELS_DIR` or pass `--models-dir`.
 | `just dev-backend` | Start the backend dev server        |
 | `just run`       | Build and serve the production bundle |
 | `just fresh`     | Clean and reinstall from scratch      |
+
+## Deployment
+
+The backend and built frontend ship as one Docker image; jobs persist in SQLite and images on
+disk, both on a named volume. The stack expects to sit on a LAN/VPN — don't expose it to the
+open internet as-is.
+
+```sh
+echo "LATENTFORGE_WORKER_TOKEN=$(openssl rand -hex 32)" > .env
+just up
+```
+
+The UI and API are at `http://<server>:3001`. Workers run wherever the GPU is (not in the
+container) and authenticate with the same token:
+
+```sh
+LATENTFORGE_WORKER_TOKEN=<token> just worker --backend-url http://<server>:3001
+```
+
+Notes:
+
+- The named volume `latentforge-data` holds the SQLite DB and generated images; it survives
+  `just down`. If you bind-mount a host directory at `/data` instead, `chown 1000:1000`
+  it (the container runs as the unprivileged `node` user).
+- Jobs that were `running` when the server stopped are re-queued on startup.
+- `just docker-build`, `just logs`, and `just down` cover the rest of the loop.
 
 ## Project structure
 

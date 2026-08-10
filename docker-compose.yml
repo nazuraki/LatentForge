@@ -1,0 +1,21 @@
+services:
+  latentforge:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      # Set in a .env file next to this compose file (gitignored)
+      LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:?set LATENTFORGE_WORKER_TOKEN in .env or the environment}
+    volumes:
+      - latentforge-data:/data
+    restart: unless-stopped
+    healthcheck:
+      # slim image has no curl/wget; node fetch does the job
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  latentforge-data:

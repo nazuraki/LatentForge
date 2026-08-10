@@ -1,4 +1,6 @@
-import { resolve } from 'node:path'
+import { existsSync, mkdirSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyServerOptions } from 'fastify'
 import { assetRoutes } from './assets/routes.ts'
 import { AssetStore } from './assets/store.ts'
@@ -8,8 +10,15 @@ import { workerRoutes } from './workers/routes.ts'
 import { WorkerStore } from './workers/store.ts'
 
 export interface AppConfig {
-  /** Directory for stored assets (generated images). */
+  /**
+   * Data root: the SQLite database lives at <dataDir>/latentforge.db and stored
+   * assets under <dataDir>/assets. Unset = in-memory jobs + default assets dir (dev/tests).
+   */
   dataDir?: string
+  /** Shared bearer token required on worker-facing endpoints. Unset = open (dev/tests). */
+  workerToken?: string
+  /** Built frontend to serve (SPA fallback included). Served only if the directory exists. */
+  staticDir?: string
 }
 
 export function buildApp(opts: FastifyServerOptions = {}, config: AppConfig = {}) {
@@ -20,14 +29,38 @@ export function buildApp(opts: FastifyServerOptions = {}, config: AppConfig = {}
     bodyLimit: 32 * 1024 * 1024,
     ...opts,
   })
-  const jobs = new JobStore()
+
+  if (config.dataDir) mkdirSync(config.dataDir, { recursive: true })
+  const jobs = config.dataDir ? new JobStore(join(config.dataDir, 'latentforge.db')) : new JobStore()
   const workers = new WorkerStore()
-  const assets = new AssetStore(config.dataDir ?? resolve('data/assets'))
+  const assets = new AssetStore(
+    config.dataDir ? join(config.dataDir, 'assets') : resolve('data/assets'),
+  )
+
+  // Claims from a previous process died with it; put those jobs back in the queue.
+  const recovered = jobs.recoverInterrupted()
+  if (recovered > 0) app.log.warn({ recovered }, 're-queued jobs interrupted by restart')
+  app.addHook('onClose', () => jobs.close())
+
+  if (!config.workerToken) {
+    app.log.warn('LATENTFORGE_WORKER_TOKEN unset — worker endpoints are unauthenticated')
+  }
 
   app.get('/api/health', () => ({ status: 'ok' }))
   jobRoutes(app, jobs)
-  workerRoutes(app, workers, jobs, assets)
+  workerRoutes(app, workers, jobs, assets, config.workerToken)
   assetRoutes(app, assets)
+
+  if (config.staticDir && existsSync(config.staticDir)) {
+    app.register(fastifyStatic, { root: resolve(config.staticDir) })
+    app.setNotFoundHandler((req, reply) => {
+      // SPA fallback: client-side routes resolve to the app shell; API 404s stay JSON.
+      if (req.method === 'GET' && !req.url.startsWith('/api/')) {
+        return reply.sendFile('index.html')
+      }
+      return reply.code(404).send({ error: 'not found' })
+    })
+  }
 
   return app
 }
