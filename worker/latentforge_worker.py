@@ -20,8 +20,9 @@ import requests
 
 log = logging.getLogger("latentforge.worker")
 
-# Relative default for dev; deployments set LATENTFORGE_MODELS_DIR (or --models-dir).
-DEFAULT_MODELS_DIR = Path(__file__).parent / "models"
+# Deployments override with LATENTFORGE_MODELS_DIR (or --models-dir); the dev
+# Justfile points this at the repo's worker/models.
+DEFAULT_MODELS_DIR = Path.home() / ".latentforge" / "models"
 MAX_SEED = 2**32 - 1
 
 

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "latentforge-worker"
+version = "0.1.0"
+description = "LatentForge worker: claims jobs from the backend and runs local diffusion inference"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.9",
+    "diffusers>=0.35",
+    "transformers>=4.50",
+    "accelerate>=1.0",
+    "safetensors>=0.4",
+    "pillow>=10.0",
+    "requests>=2.32",
+]
+
+[project.urls]
+Repository = "https://github.com/nazuraki/LatentForge"
+
+[project.scripts]
+latentforge-worker = "latentforge_worker:main"
+
+[tool.setuptools]
+py-modules = ["latentforge_worker"]

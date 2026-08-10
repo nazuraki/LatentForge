@@ -42,11 +42,11 @@ dev-backend:
 
 # Create the worker venv and install its dependencies
 worker-setup:
-    cd worker && /opt/homebrew/bin/python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt
+    cd worker && /opt/homebrew/bin/python3.14 -m venv .venv && .venv/bin/pip install -e .
 
-# Start a worker (local inference; see worker/worker.py --help for flags)
+# Start a worker (local inference; see latentforge-worker --help for flags)
 worker *ARGS:
-    cd worker && .venv/bin/python worker.py {{ARGS}}
+    cd worker && LATENTFORGE_MODELS_DIR="${LATENTFORGE_MODELS_DIR:-models}" .venv/bin/latentforge-worker {{ARGS}}
 
 # Build and serve the production frontend
 run:

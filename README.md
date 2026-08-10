@@ -18,7 +18,7 @@ audience.
 | `LATENTFORGE_DATA_DIR`     | in-memory + `backend/data/assets` | Data root: SQLite DB at `<dir>/latentforge.db`, images under `<dir>/assets`        |
 | `LATENTFORGE_WORKER_TOKEN` | unset               | Shared bearer token required on worker endpoints. Optional everywhere: in production, leaving it unset enables first-run setup in the UI (token stored in the data volume); in dev, unset means open |
 | `LATENTFORGE_STATIC_DIR`   | unset               | Built frontend dir; if it exists, the backend serves it with SPA fallback                        |
-| `LATENTFORGE_MODELS_DIR`   | `worker/models`     | Worker checkpoint directory                                                                      |
+| `LATENTFORGE_MODELS_DIR`   | `~/.latentforge/models` | Worker checkpoint directory (`just worker` points it at `worker/models`)                     |
 
 None are required for local development.
 
@@ -81,11 +81,23 @@ Pre-setting `LATENTFORGE_WORKER_TOKEN` in the environment (or a `.env` next to t
 file) skips first-run setup; the env var always wins over the stored token.
 
 The UI and API are at `http://<server>:19526`. Workers run wherever the GPU is (not in the
-container) and authenticate with the token from setup:
+container) and authenticate with the token from setup. No checkout needed — install the
+worker as a tool with [uv](https://docs.astral.sh/uv/) (Python 3.10+):
 
 ```sh
-LATENTFORGE_WORKER_TOKEN=<token> just worker --backend-url http://<server>:19526
+uv tool install "git+https://github.com/nazuraki/LatentForge#subdirectory=worker"
 ```
+
+Drop `.safetensors` checkpoints (or symlinks) into `~/.latentforge/models`, then:
+
+```sh
+LATENTFORGE_WORKER_TOKEN=<token> latentforge-worker --backend-url http://<server>:19526
+```
+
+Re-run `uv tool install` with `--force` to update. On Linux, plain installs pull the
+default CUDA build of PyTorch; for a specific CUDA version or CPU-only, see the
+[PyTorch install matrix](https://pytorch.org/get-started/locally/). (From a checkout,
+`just worker --backend-url ...` still works and uses `worker/models`.)
 
 Notes:
 
