@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { InvalidTransitionError, JobNotFoundError, JobStore } from './store.ts'
 
@@ -53,5 +56,37 @@ describe('JobStore', () => {
   it('throws for unknown job ids', () => {
     const store = new JobStore()
     expect(() => store.transition('nope', 'running')).toThrow(JobNotFoundError)
+  })
+
+  it('persists jobs across close and reopen', () => {
+    const dbPath = join(mkdtempSync(join(tmpdir(), 'latentforge-')), 'jobs.db')
+    const store = new JobStore(dbPath)
+    const job = store.create({ prompt: 'persist me', seed: 7 })
+    store.transition(job.id, 'running')
+    store.transition(job.id, 'succeeded', { output: { images: ['/api/assets/x.png'], seed: 7 } })
+    store.close()
+
+    const reopened = new JobStore(dbPath)
+    const loaded = reopened.get(job.id)
+    expect(loaded?.status).toBe('succeeded')
+    expect(loaded?.request).toEqual({ prompt: 'persist me', seed: 7 })
+    expect(loaded?.output).toEqual({ images: ['/api/assets/x.png'], seed: 7 })
+    reopened.close()
+  })
+
+  it('re-queues interrupted running jobs on recovery', () => {
+    const store = new JobStore()
+    const running = store.create({ prompt: 'interrupted' })
+    const done = store.create({ prompt: 'finished' })
+    store.claimNext('w1')
+    store.claimNext('w1')
+    store.transition(done.id, 'succeeded')
+
+    expect(store.recoverInterrupted()).toBe(1)
+    const recovered = store.get(running.id)
+    expect(recovered?.status).toBe('queued')
+    expect(recovered?.workerId).toBeUndefined()
+    expect(store.get(done.id)?.status).toBe('succeeded')
+    expect(store.recoverInterrupted()).toBe(0)
   })
 })

@@ -52,6 +52,22 @@ worker *ARGS:
 run:
     cd frontend && npm run build && npm run preview
 
+# Build the production Docker image
+docker-build:
+    docker build -t latentforge .
+
+# Build and start the stack (requires LATENTFORGE_WORKER_TOKEN in .env)
+docker-up:
+    docker compose up -d --build
+
+# Stop the stack (data volume is preserved)
+docker-down:
+    docker compose down
+
+# Tail backend container logs
+docker-logs:
+    docker compose logs -f
+
 # Remove build artifacts
 clean:
     rm -rf frontend/dist frontend/node_modules/.tmp

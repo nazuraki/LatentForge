@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/dist-ssr
+backend/data
+worker/.venv
+worker/models
+worker/__pycache__
+.git
+.github
+.claude
+*.log
+.env
+.env.*
+.DS_Store

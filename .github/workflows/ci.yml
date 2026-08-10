@@ -7,33 +7,46 @@ on:
 
 jobs:
   lint-typecheck:
-    name: Lint & typecheck
+    name: Lint & typecheck (${{ matrix.dir }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: [frontend, backend]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
       - run: npm ci
-        working-directory: frontend
+        working-directory: ${{ matrix.dir }}
       - run: npm run lint
-        working-directory: frontend
+        working-directory: ${{ matrix.dir }}
       - run: npm run typecheck
-        working-directory: frontend
+        working-directory: ${{ matrix.dir }}
 
   test:
-    name: Test
+    name: Test (${{ matrix.dir }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: [frontend, backend]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
       - run: npm ci
-        working-directory: frontend
+        working-directory: ${{ matrix.dir }}
       - run: npm run test
-        working-directory: frontend
+        working-directory: ${{ matrix.dir }}
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: docker build -t latentforge:ci .

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { AssetStore } from '../assets/store.ts'
+import { requireBearerToken } from '../auth.ts'
 import { InvalidTransitionError, type JobOutput, type JobStore } from '../jobs/store.ts'
 import type { WorkerRegistration, WorkerStore } from './store.ts'
 
@@ -41,33 +42,45 @@ export function workerRoutes(
   workers: WorkerStore,
   jobs: JobStore,
   assets: AssetStore,
+  workerToken?: string,
 ) {
+  // Worker-facing routes require the shared token; GET /api/workers is UI-facing and stays open.
+  const onRequest = workerToken ? [requireBearerToken(workerToken)] : []
+
   app.post<{ Body: WorkerRegistration }>(
     '/api/workers',
-    { schema: registerSchema },
+    { schema: registerSchema, onRequest },
     async (req, reply) => reply.code(201).send(workers.register(req.body)),
   )
 
   app.get('/api/workers', () => ({ workers: workers.list() }))
 
-  app.post<{ Params: { id: string } }>('/api/workers/:id/heartbeat', async (req, reply) => {
-    const worker = workers.heartbeat(req.params.id)
-    if (!worker) return reply.code(404).send({ error: 'worker not found' })
-    return worker
-  })
+  app.post<{ Params: { id: string } }>(
+    '/api/workers/:id/heartbeat',
+    { onRequest },
+    async (req, reply) => {
+      const worker = workers.heartbeat(req.params.id)
+      if (!worker) return reply.code(404).send({ error: 'worker not found' })
+      return worker
+    },
+  )
 
   // Claiming counts as a heartbeat — a polling worker shouldn't need both calls.
-  app.post<{ Params: { id: string } }>('/api/workers/:id/claim', async (req, reply) => {
-    const worker = workers.heartbeat(req.params.id)
-    if (!worker) return reply.code(404).send({ error: 'worker not found' })
-    const job = jobs.claimNext(worker.id)
-    if (!job) return reply.code(204).send()
-    return job
-  })
+  app.post<{ Params: { id: string } }>(
+    '/api/workers/:id/claim',
+    { onRequest },
+    async (req, reply) => {
+      const worker = workers.heartbeat(req.params.id)
+      if (!worker) return reply.code(404).send({ error: 'worker not found' })
+      const job = jobs.claimNext(worker.id)
+      if (!job) return reply.code(204).send()
+      return job
+    },
+  )
 
   app.post<{ Params: { id: string; jobId: string }; Body: ResultBody }>(
     '/api/workers/:id/jobs/:jobId/result',
-    { schema: resultSchema },
+    { schema: resultSchema, onRequest },
     async (req, reply) => {
       const worker = workers.heartbeat(req.params.id)
       if (!worker) return reply.code(404).send({ error: 'worker not found' })

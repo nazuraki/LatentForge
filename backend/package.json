@@ -12,12 +12,18 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.13.3",
     "oxlint": "^1.75.0",
     "typescript": "~6.0.2",
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@fastify/static": "^8.3.0",
+    "better-sqlite3": "^12.11.1",
     "fastify": "^5.11.3"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
   }
 }
