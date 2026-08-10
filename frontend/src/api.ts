@@ -72,3 +72,14 @@ export function cancelJob(id: string): Promise<Job> {
 export function listWorkers(): Promise<{ workers: Worker[] }> {
   return request('/api/workers')
 }
+
+export function getSetupStatus(): Promise<{ needed: boolean }> {
+  return request('/api/setup')
+}
+
+export function completeSetup(workerToken?: string): Promise<{ workerToken: string }> {
+  return request('/api/setup', {
+    method: 'POST',
+    body: JSON.stringify(workerToken ? { workerToken } : {}),
+  })
+}

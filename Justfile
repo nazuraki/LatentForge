@@ -36,7 +36,7 @@ test:
 dev:
     cd frontend && npm run dev
 
-# Start the backend dev server (port 3001)
+# Start the backend dev server (port 19526)
 dev-backend:
     cd backend && npm run dev
 

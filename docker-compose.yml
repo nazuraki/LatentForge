@@ -2,16 +2,18 @@ services:
   latentforge:
     build: .
     ports:
-      - "3001:3001"
+      - "19526:19526"
     environment:
-      # Set in a .env file next to this compose file (gitignored)
-      LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:?set LATENTFORGE_WORKER_TOKEN in .env or the environment}
+      # Optional: pre-set the worker token to skip first-run setup in the UI.
+      # Leave unset for zero config — the UI prompts on first visit and stores
+      # it in the data volume.
+      LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:-}
     volumes:
       - latentforge-data:/data
     restart: unless-stopped
     healthcheck:
       # slim image has no curl/wget; node fetch does the job
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:19526/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 10s

@@ -27,7 +27,7 @@ MAX_SEED = 2**32 - 1
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend-url", default="http://localhost:3001")
+    parser.add_argument("--backend-url", default="http://localhost:19526")
     parser.add_argument(
         "--models-dir",
         type=Path,

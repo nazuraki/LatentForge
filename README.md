@@ -14,9 +14,9 @@ audience.
 
 | Variable                   | Default             | Purpose                                                                                          |
 | -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
-| `PORT`                     | `3001`              | Backend listen port                                                                              |
+| `PORT`                     | `19526`              | Backend listen port                                                                              |
 | `LATENTFORGE_DATA_DIR`     | in-memory + `backend/data/assets` | Data root: SQLite DB at `<dir>/latentforge.db`, images under `<dir>/assets`        |
-| `LATENTFORGE_WORKER_TOKEN` | unset (open)        | Shared bearer token required on worker endpoints; **required** when `NODE_ENV=production`        |
+| `LATENTFORGE_WORKER_TOKEN` | unset               | Shared bearer token required on worker endpoints. Optional everywhere: in production, leaving it unset enables first-run setup in the UI (token stored in the data volume); in dev, unset means open |
 | `LATENTFORGE_STATIC_DIR`   | unset               | Built frontend dir; if it exists, the backend serves it with SPA fallback                        |
 | `LATENTFORGE_MODELS_DIR`   | `worker/models`     | Worker checkpoint directory                                                                      |
 
@@ -31,7 +31,7 @@ just dev
 
 This starts the frontend dev server (Vite) at the URL it prints (default `http://localhost:5173`).
 Run `just dev-backend` in another terminal to start the API server (Fastify, default
-`http://localhost:3001`); the frontend dev server proxies `/api` requests to it.
+`http://localhost:19526`); the frontend dev server proxies `/api` requests to it.
 
 To actually execute jobs, run a worker (requires Python 3.14 and, once, `just worker-setup`):
 
@@ -56,20 +56,35 @@ nonstandard setups set `LATENTFORGE_MODELS_DIR` or pass `--models-dir`.
 
 ## Deployment
 
-The backend and built frontend ship as one Docker image; jobs persist in SQLite and images on
-disk, both on a named volume. The stack expects to sit on a LAN/VPN — don't expose it to the
-open internet as-is.
+The backend and built frontend ship as one Docker image
+(`ghcr.io/nazuraki/latentforge`, published from `main`); jobs persist in SQLite and images
+on disk, both on a named volume. The stack expects to sit on a LAN/VPN — don't expose it to
+the open internet as-is.
+
+One-line install (needs only Docker):
 
 ```sh
-echo "LATENTFORGE_WORKER_TOKEN=$(openssl rand -hex 32)" > .env
-just up
+curl -fsSL https://raw.githubusercontent.com/nazuraki/LatentForge/main/install.sh | sh
 ```
 
-The UI and API are at `http://<server>:3001`. Workers run wherever the GPU is (not in the
-container) and authenticate with the same token:
+This pulls the image, starts the stack, and prints the URL. It prompts for the install
+directory (Enter accepts `~/latentforge`; non-interactive runs skip the prompt — seed the
+default with `LATENTFORGE_HOME`, and the port with `LATENTFORGE_PORT`). No configuration
+files: on first visit the
+UI walks through setup — it generates the worker token and stores it in the data volume.
+Until setup completes, worker endpoints refuse requests (they are never open in production).
+First visitor claims setup, so finish it right after installing. Re-running the installer
+updates to the latest image.
+
+To deploy from a checkout instead, `just up` builds and starts the same stack locally.
+Pre-setting `LATENTFORGE_WORKER_TOKEN` in the environment (or a `.env` next to the compose
+file) skips first-run setup; the env var always wins over the stored token.
+
+The UI and API are at `http://<server>:19526`. Workers run wherever the GPU is (not in the
+container) and authenticate with the token from setup:
 
 ```sh
-LATENTFORGE_WORKER_TOKEN=<token> just worker --backend-url http://<server>:3001
+LATENTFORGE_WORKER_TOKEN=<token> just worker --backend-url http://<server>:19526
 ```
 
 Notes:
