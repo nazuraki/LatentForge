@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import type { Job, Worker } from './api'
@@ -77,11 +78,12 @@ describe('App', () => {
   })
 
   it('submits a new job and shows it in the list', async () => {
+    const user = userEvent.setup()
     render(<App />)
-    fireEvent.change(screen.getByLabelText('Prompt'), { target: { value: 'a red fox' } })
-    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'sdxl-1.0' } })
-    fireEvent.change(screen.getByLabelText('Seed'), { target: { value: '42' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }))
+    await user.type(screen.getByLabelText('Prompt'), 'a red fox')
+    await user.type(screen.getByLabelText('Model'), 'sdxl-1.0')
+    await user.type(screen.getByLabelText('Seed'), '42')
+    await user.click(screen.getByRole('button', { name: 'Generate' }))
     expect(await screen.findByText('a red fox')).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith(
       '/api/jobs',
@@ -92,10 +94,22 @@ describe('App', () => {
     )
   })
 
+  it('keeps Generate disabled until a prompt is entered', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const button = screen.getByRole('button', { name: 'Generate' })
+    expect(button).toBeDisabled()
+    await user.click(button)
+    expect(fetch).not.toHaveBeenCalledWith('/api/jobs', expect.objectContaining({ method: 'POST' }))
+    await user.type(screen.getByLabelText('Prompt'), 'a red fox')
+    expect(button).toBeEnabled()
+  })
+
   it('cancels a queued job', async () => {
     jobs = [job({ id: 'j1' })]
+    const user = userEvent.setup()
     render(<App />)
-    fireEvent.click(await screen.findByRole('button', { name: /cancel job/i }))
+    await user.click(await screen.findByRole('button', { name: /cancel job/i }))
     expect(await screen.findByText('canceled')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /cancel job/i })).not.toBeInTheDocument()
   })
