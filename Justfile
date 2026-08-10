@@ -10,7 +10,7 @@ install:
     cd backend && npm install
 
 # Run all checks (lint, typecheck, test)
-check: lint typecheck test
+check: lint typecheck test test-worker
 
 # Lint the codebase (read-only)
 lint:
@@ -47,6 +47,10 @@ worker-setup:
 # Start a worker (local inference; see latentforge-worker --help for flags)
 worker *ARGS:
     cd worker && LATENTFORGE_MODELS_DIR="${LATENTFORGE_MODELS_DIR:-models}" .venv/bin/latentforge-worker {{ARGS}}
+
+# Run the worker's test suite (requires worker-setup)
+test-worker:
+    cd worker && .venv/bin/python -m unittest test_latentforge_worker
 
 # Build and serve the production frontend
 run:
