@@ -42,6 +42,14 @@ describe('JobStore', () => {
     expect(() => store.transition(job.id, 'running')).toThrow(InvalidTransitionError)
   })
 
+  it('claims strictly in creation order, even within the same millisecond', () => {
+    const store = new JobStore()
+    const created = Array.from({ length: 5 }, (_, i) => store.create({ prompt: `job ${i}` }))
+    const claimed = created.map(() => store.claimNext('w1')?.id)
+    expect(claimed).toEqual(created.map((j) => j.id))
+    expect(store.claimNext('w1')).toBeUndefined()
+  })
+
   it('throws for unknown job ids', () => {
     const store = new JobStore()
     expect(() => store.transition('nope', 'running')).toThrow(JobNotFoundError)

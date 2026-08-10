@@ -13,6 +13,7 @@ export interface Job {
   id: string
   status: JobStatus
   request: JobRequest
+  workerId?: string
   error?: string
   createdAt: string
   updatedAt: string
@@ -47,9 +48,21 @@ export class JobStore {
   }
 
   list(status?: JobStatus): Job[] {
-    const all = [...this.jobs.values()]
+    // Newest first. Map insertion order is creation order; reversing before the
+    // stable sort keeps that ordering for jobs created in the same millisecond.
+    const all = [...this.jobs.values()].reverse()
     const filtered = status ? all.filter((j) => j.status === status) : all
     return filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  }
+
+  /** Claim the oldest queued job for a worker, moving it to running. */
+  claimNext(workerId: string): Job | undefined {
+    for (const job of this.jobs.values()) {
+      if (job.status !== 'queued') continue
+      job.workerId = workerId
+      return this.transition(job.id, 'running')
+    }
+    return undefined
   }
 
   transition(id: string, to: JobStatus, error?: string): Job {
