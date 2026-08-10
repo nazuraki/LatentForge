@@ -62,7 +62,7 @@ open internet as-is.
 
 ```sh
 echo "LATENTFORGE_WORKER_TOKEN=$(openssl rand -hex 32)" > .env
-just docker-up
+just up
 ```
 
 The UI and API are at `http://<server>:3001`. Workers run wherever the GPU is (not in the
@@ -75,10 +75,10 @@ LATENTFORGE_WORKER_TOKEN=<token> just worker --backend-url http://<server>:3001
 Notes:
 
 - The named volume `latentforge-data` holds the SQLite DB and generated images; it survives
-  `just docker-down`. If you bind-mount a host directory at `/data` instead, `chown 1000:1000`
+  `just down`. If you bind-mount a host directory at `/data` instead, `chown 1000:1000`
   it (the container runs as the unprivileged `node` user).
 - Jobs that were `running` when the server stopped are re-queued on startup.
-- `just docker-build`, `just docker-logs`, and `just docker-down` cover the rest of the loop.
+- `just docker-build`, `just logs`, and `just down` cover the rest of the loop.
 
 ## Project structure
 

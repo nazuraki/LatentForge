@@ -57,15 +57,15 @@ docker-build:
     docker build -t latentforge .
 
 # Build and start the stack (requires LATENTFORGE_WORKER_TOKEN in .env)
-docker-up:
+up:
     docker compose up -d --build
 
 # Stop the stack (data volume is preserved)
-docker-down:
+down:
     docker compose down
 
 # Tail backend container logs
-docker-logs:
+logs:
     docker compose logs -f
 
 # Remove build artifacts
