@@ -1,0 +1,23 @@
+{
+  "name": "backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts",
+    "lint": "oxlint",
+    "fix": "oxlint --fix",
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "fastify": "^5.11.3"
+  }
+}
