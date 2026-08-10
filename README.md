@@ -91,8 +91,12 @@ uv tool install "git+https://github.com/nazuraki/LatentForge#subdirectory=worker
 Drop `.safetensors` checkpoints (or symlinks) into `~/.latentforge/models`, then:
 
 ```sh
-LATENTFORGE_WORKER_TOKEN=<token> latentforge-worker --backend-url http://<server>:19526
+latentforge-worker --backend-url http://<server>:19526 --token <token>
 ```
+
+The first run saves the token to `~/.latentforge/token` (mode `0600`), so later runs can
+omit `--token`. `--token`/`LATENTFORGE_WORKER_TOKEN` always take precedence over the file;
+delete the file to forget the token.
 
 Re-run `uv tool install` with `--force` to update. On Linux, plain installs pull the
 default CUDA build of PyTorch; for a specific CUDA version or CPU-only, see the

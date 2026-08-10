@@ -23,6 +23,7 @@ log = logging.getLogger("latentforge.worker")
 # Deployments override with LATENTFORGE_MODELS_DIR (or --models-dir); the dev
 # Justfile points this at the repo's worker/models.
 DEFAULT_MODELS_DIR = Path.home() / ".latentforge" / "models"
+TOKEN_FILE = Path.home() / ".latentforge" / "token"
 MAX_SEED = 2**32 - 1
 
 
@@ -39,9 +40,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--token",
         default=os.environ.get("LATENTFORGE_WORKER_TOKEN"),
-        help="shared bearer token for worker endpoints (default: LATENTFORGE_WORKER_TOKEN)",
+        help="shared bearer token for worker endpoints "
+        "(default: LATENTFORGE_WORKER_TOKEN, then ~/.latentforge/token)",
     )
     return parser.parse_args()
+
+
+def resolve_token(token: str | None) -> str | None:
+    """--token/env wins and is saved for next time; otherwise read TOKEN_FILE."""
+    if token:
+        if not TOKEN_FILE.exists():
+            TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+            TOKEN_FILE.touch(mode=0o600)
+            TOKEN_FILE.write_text(token + "\n")
+            log.info("saved token to %s — future runs can omit --token", TOKEN_FILE)
+        return token
+    if not TOKEN_FILE.is_file():
+        return None
+    if os.name == "posix" and TOKEN_FILE.stat().st_mode & 0o077:
+        sys.exit(
+            f"refusing to use {TOKEN_FILE}: readable by other users — "
+            f"fix with: chmod 600 {TOKEN_FILE}"
+        )
+    return TOKEN_FILE.read_text().strip() or None
 
 
 def discover_models(models_dir: Path) -> dict[str, Path]:
@@ -186,7 +207,7 @@ def main() -> None:
     device = pick_device()
     log.info("device: %s", device)
 
-    backend = Backend(args.backend_url, args.token)
+    backend = Backend(args.backend_url, resolve_token(args.token))
     backend.register(args.name, list(models))
     pipelines = PipelineCache(device)
 
