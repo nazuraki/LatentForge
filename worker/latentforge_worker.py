@@ -71,13 +71,23 @@ def resolve_token(token: str | None) -> str | None:
 
 
 def discover_models(models_dir: Path) -> dict[str, Path]:
-    """Map model name (file stem) -> checkpoint path."""
+    """Map model name (file stem) -> checkpoint path, skipping unsupported architectures."""
     hint = "set LATENTFORGE_MODELS_DIR or pass --models-dir (checkpoints may be symlinks)"
     if not models_dir.is_dir():
         sys.exit(f"models dir not found: {models_dir} — {hint}")
-    models = {p.stem: p for p in sorted(models_dir.glob("*.safetensors"))}
-    if not models:
+    candidates = sorted(models_dir.glob("*.safetensors"))
+    if not candidates:
         sys.exit(f"no .safetensors checkpoints in {models_dir} — {hint}")
+    models: dict[str, Path] = {}
+    for path in candidates:
+        try:
+            detect_pipeline_class(path)
+        except UnsupportedCheckpointError as err:
+            log.info("skipping %s: %s", path.name, err)
+            continue
+        models[path.stem] = path
+    if not models:
+        sys.exit(f"no supported checkpoints in {models_dir} — {hint}")
     return models
 
 

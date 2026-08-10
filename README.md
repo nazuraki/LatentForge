@@ -42,7 +42,9 @@ just worker
 
 The worker discovers `.safetensors` checkpoints in `worker/models/` by default (symlinks
 work — link your existing checkpoints there rather than copying). Deployments and
-nonstandard setups set `LATENTFORGE_MODELS_DIR` or pass `--models-dir`.
+nonstandard setups set `LATENTFORGE_MODELS_DIR` or pass `--models-dir`. Checkpoints with an
+unsupported architecture (anything that isn't SD 1.x/2.x or SDXL-family) are skipped at
+startup and logged, not advertised to the backend.
 
 ## Development
 
