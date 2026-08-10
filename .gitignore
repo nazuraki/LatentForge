@@ -1,8 +1,13 @@
 # Dependencies
 node_modules/
+.venv/
+__pycache__/
 
 # Stored assets (generated images)
 backend/data/
+
+# Local model checkpoints / symlinks
+worker/models/
 
 # Build output
 dist/

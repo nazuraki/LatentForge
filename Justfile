@@ -40,6 +40,14 @@ dev:
 dev-backend:
     cd backend && npm run dev
 
+# Create the worker venv and install its dependencies
+worker-setup:
+    cd worker && /opt/homebrew/bin/python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+# Start a worker (local inference; see worker/worker.py --help for flags)
+worker *ARGS:
+    cd worker && .venv/bin/python worker.py {{ARGS}}
+
 # Build and serve the production frontend
 run:
     cd frontend && npm run build && npm run preview

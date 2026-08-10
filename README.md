@@ -23,6 +23,16 @@ This starts the frontend dev server (Vite) at the URL it prints (default `http:/
 Run `just dev-backend` in another terminal to start the API server (Fastify, default
 `http://localhost:3001`); the frontend dev server proxies `/api` requests to it.
 
+To actually execute jobs, run a worker (requires Python 3.14 and, once, `just worker-setup`):
+
+```sh
+just worker
+```
+
+The worker discovers `.safetensors` checkpoints in `worker/models/` by default (symlinks
+work — link your existing checkpoints there rather than copying). Deployments and
+nonstandard setups set `LATENTFORGE_MODELS_DIR` or pass `--models-dir`.
+
 ## Development
 
 | Command          | What it does                          |
@@ -38,6 +48,7 @@ Run `just dev-backend` in another terminal to start the API server (Fastify, def
 
 - `frontend/` — React (Vite + TypeScript) web app
 - `backend/` — Fastify (Node + TypeScript) API server
+- `worker/` — Python worker running local diffusion inference (PyTorch + diffusers)
 
 ## License
 
