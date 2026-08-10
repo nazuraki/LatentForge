@@ -14,7 +14,7 @@ set -eu
 
 IMAGE="ghcr.io/nazuraki/latentforge:latest"
 DIR_DEFAULT="${LATENTFORGE_HOME:-$HOME/latentforge}"
-PORT="${LATENTFORGE_PORT:-3001}"
+PORT="${LATENTFORGE_PORT:-19526}"
 
 fail() {
   echo "error: $1" >&2
@@ -49,12 +49,12 @@ services:
   latentforge:
     image: $IMAGE
     ports:
-      - "$PORT:3001"
+      - "$PORT:19526"
     volumes:
       - latentforge-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:19526/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 10s

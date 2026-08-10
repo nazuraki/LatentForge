@@ -1,6 +1,6 @@
 import { buildApp } from './app.ts'
 
-const port = Number(process.env.PORT ?? 3001)
+const port = Number(process.env.PORT ?? 19526)
 // Treat empty as unset so `LATENTFORGE_WORKER_TOKEN=` in compose doesn't disable auth.
 const workerToken = process.env.LATENTFORGE_WORKER_TOKEN || undefined
 

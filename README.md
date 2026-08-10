@@ -14,7 +14,7 @@ audience.
 
 | Variable                   | Default             | Purpose                                                                                          |
 | -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
-| `PORT`                     | `3001`              | Backend listen port                                                                              |
+| `PORT`                     | `19526`              | Backend listen port                                                                              |
 | `LATENTFORGE_DATA_DIR`     | in-memory + `backend/data/assets` | Data root: SQLite DB at `<dir>/latentforge.db`, images under `<dir>/assets`        |
 | `LATENTFORGE_WORKER_TOKEN` | unset               | Shared bearer token required on worker endpoints. Optional everywhere: in production, leaving it unset enables first-run setup in the UI (token stored in the data volume); in dev, unset means open |
 | `LATENTFORGE_STATIC_DIR`   | unset               | Built frontend dir; if it exists, the backend serves it with SPA fallback                        |
@@ -31,7 +31,7 @@ just dev
 
 This starts the frontend dev server (Vite) at the URL it prints (default `http://localhost:5173`).
 Run `just dev-backend` in another terminal to start the API server (Fastify, default
-`http://localhost:3001`); the frontend dev server proxies `/api` requests to it.
+`http://localhost:19526`); the frontend dev server proxies `/api` requests to it.
 
 To actually execute jobs, run a worker (requires Python 3.14 and, once, `just worker-setup`):
 
@@ -80,11 +80,11 @@ To deploy from a checkout instead, `just up` builds and starts the same stack lo
 Pre-setting `LATENTFORGE_WORKER_TOKEN` in the environment (or a `.env` next to the compose
 file) skips first-run setup; the env var always wins over the stored token.
 
-The UI and API are at `http://<server>:3001`. Workers run wherever the GPU is (not in the
+The UI and API are at `http://<server>:19526`. Workers run wherever the GPU is (not in the
 container) and authenticate with the token from setup:
 
 ```sh
-LATENTFORGE_WORKER_TOKEN=<token> just worker --backend-url http://<server>:3001
+LATENTFORGE_WORKER_TOKEN=<token> just worker --backend-url http://<server>:19526
 ```
 
 Notes:
