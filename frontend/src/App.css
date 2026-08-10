@@ -185,3 +185,37 @@ main section {
   font-size: 13px;
   color: var(--text);
 }
+
+.setup {
+  max-width: 36rem;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.setup button {
+  font: inherit;
+  padding: 8px 20px;
+  border: 1px solid var(--accent-border);
+  border-radius: 4px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.setup-token {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.setup-command {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 13px;
+}

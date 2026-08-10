@@ -25,6 +25,7 @@ const worker: Worker = {
 
 let jobs: Job[]
 let workers: Worker[]
+let setupNeeded: boolean
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
@@ -33,11 +34,17 @@ function jsonResponse(body: unknown, status = 200) {
 beforeEach(() => {
   jobs = []
   workers = []
+  setupNeeded = false
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       const method = init?.method ?? 'GET'
+      if (url === '/api/setup' && method === 'GET') return jsonResponse({ needed: setupNeeded })
+      if (url === '/api/setup' && method === 'POST') {
+        setupNeeded = false
+        return jsonResponse({ workerToken: 'generated-token-value' }, 201)
+      }
       if (url === '/api/jobs' && method === 'GET') return jsonResponse({ jobs })
       if (url === '/api/jobs' && method === 'POST') {
         const body = JSON.parse(String(init?.body))
@@ -63,7 +70,20 @@ afterEach(() => {
 describe('App', () => {
   it('renders the LatentForge heading', async () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'LatentForge' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'LatentForge' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument())
+  })
+
+  it('walks through first-run setup, shows the token once, then the dashboard', async () => {
+    setupNeeded = true
+    const user = userEvent.setup()
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: /welcome to latentforge/i })).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: /generate token/i }))
+    expect(await screen.findByText('generated-token-value')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /go to dashboard/i }))
     await waitFor(() => expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument())
   })
 
@@ -95,7 +115,7 @@ describe('App', () => {
   it('submits a new job and shows it in the list', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.type(screen.getByLabelText('Prompt'), 'a red fox')
+    await user.type(await screen.findByLabelText('Prompt'), 'a red fox')
     await user.type(screen.getByLabelText('Model'), 'sdxl-1.0')
     await user.type(screen.getByLabelText('Seed'), '42')
     await user.click(screen.getByRole('button', { name: 'Generate' }))
@@ -112,7 +132,7 @@ describe('App', () => {
   it('keeps Generate disabled until a prompt is entered', async () => {
     const user = userEvent.setup()
     render(<App />)
-    const button = screen.getByRole('button', { name: 'Generate' })
+    const button = await screen.findByRole('button', { name: 'Generate' })
     expect(button).toBeDisabled()
     await user.click(button)
     expect(fetch).not.toHaveBeenCalledWith('/api/jobs', expect.objectContaining({ method: 'POST' }))

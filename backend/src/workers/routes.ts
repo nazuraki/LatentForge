@@ -1,6 +1,5 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, onRequestHookHandler } from 'fastify'
 import type { AssetStore } from '../assets/store.ts'
-import { requireBearerToken } from '../auth.ts'
 import { InvalidTransitionError, type JobOutput, type JobStore } from '../jobs/store.ts'
 import type { WorkerRegistration, WorkerStore } from './store.ts'
 
@@ -42,10 +41,8 @@ export function workerRoutes(
   workers: WorkerStore,
   jobs: JobStore,
   assets: AssetStore,
-  workerToken?: string,
+  onRequest: onRequestHookHandler[],
 ) {
-  // Worker-facing routes require the shared token; GET /api/workers is UI-facing and stays open.
-  const onRequest = workerToken ? [requireBearerToken(workerToken)] : []
 
   app.post<{ Body: WorkerRegistration }>(
     '/api/workers',

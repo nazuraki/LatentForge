@@ -4,8 +4,10 @@ services:
     ports:
       - "3001:3001"
     environment:
-      # Set in a .env file next to this compose file (gitignored)
-      LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:?set LATENTFORGE_WORKER_TOKEN in .env or the environment}
+      # Optional: pre-set the worker token to skip first-run setup in the UI.
+      # Leave unset for zero config — the UI prompts on first visit and stores
+      # it in the data volume.
+      LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:-}
     volumes:
       - latentforge-data:/data
     restart: unless-stopped

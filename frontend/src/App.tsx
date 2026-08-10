@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
-import { listJobs, listWorkers, type Job, type Worker } from './api'
+import { getSetupStatus, listJobs, listWorkers, type Job, type Worker } from './api'
 import { JobForm } from './JobForm'
 import { JobList } from './JobList'
+import { Setup } from './Setup'
 import { WorkerList } from './WorkerList'
 
 const POLL_INTERVAL_MS = 3000
@@ -11,6 +12,16 @@ function App() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [workers, setWorkers] = useState<Worker[]>([])
   const [offline, setOffline] = useState(false)
+  // undefined = status unknown (don't flash either screen before the first response)
+  const [setupNeeded, setSetupNeeded] = useState<boolean | undefined>()
+
+  useEffect(() => {
+    getSetupStatus().then(
+      ({ needed }) => setSetupNeeded(needed),
+      // Unreachable backend: show the dashboard, which has the offline banner.
+      () => setSetupNeeded(false),
+    )
+  }, [])
 
   const refresh = useCallback(async () => {
     try {
@@ -24,10 +35,21 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (setupNeeded !== false) return
     refresh()
     const timer = setInterval(refresh, POLL_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [refresh])
+  }, [refresh, setupNeeded])
+
+  if (setupNeeded === undefined) return null
+  if (setupNeeded) {
+    return (
+      <main>
+        <h1>LatentForge</h1>
+        <Setup onDone={() => setSetupNeeded(false)} />
+      </main>
+    )
+  }
 
   return (
     <main>
