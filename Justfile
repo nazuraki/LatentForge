@@ -7,6 +7,7 @@ default:
 # Install all dependencies
 install:
     cd frontend && npm install
+    cd backend && npm install
 
 # Run all checks (lint, typecheck, test)
 check: lint typecheck test
@@ -14,22 +15,30 @@ check: lint typecheck test
 # Lint the codebase (read-only)
 lint:
     cd frontend && npm run lint
+    cd backend && npm run lint
 
 # Auto-fix lint issues
 fix:
     cd frontend && npm run fix
+    cd backend && npm run fix
 
 # Typecheck the codebase
 typecheck:
     cd frontend && npm run typecheck
+    cd backend && npm run typecheck
 
 # Run the test suite
 test:
     cd frontend && npm run test
+    cd backend && npm run test
 
-# Start the frontend dev server
+# Start the frontend dev server (proxies /api to the backend)
 dev:
     cd frontend && npm run dev
+
+# Start the backend dev server (port 3001)
+dev-backend:
+    cd backend && npm run dev
 
 # Build and serve the production frontend
 run:
