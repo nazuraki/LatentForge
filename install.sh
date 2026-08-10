@@ -7,12 +7,13 @@
 # configuration needed — on first visit the web UI walks through setup.
 # Re-running is safe: it pulls the latest image and restarts.
 #
-# Override the install directory with LATENTFORGE_HOME (default ~/latentforge).
+# Prompts for the install directory (default ~/latentforge, or LATENTFORGE_HOME);
+# non-interactive runs use the default without prompting.
 
 set -eu
 
 IMAGE="ghcr.io/nazuraki/latentforge:latest"
-DIR="${LATENTFORGE_HOME:-$HOME/latentforge}"
+DIR_DEFAULT="${LATENTFORGE_HOME:-$HOME/latentforge}"
 PORT="${LATENTFORGE_PORT:-3001}"
 
 fail() {
@@ -23,6 +24,22 @@ fail() {
 command -v docker >/dev/null 2>&1 || fail "Docker is required — install it from https://docs.docker.com/get-docker/"
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required (the 'docker compose' plugin)"
 docker info >/dev/null 2>&1 || fail "the Docker daemon isn't running (or you lack permission to talk to it)"
+
+# Under `curl | sh` stdin is the script, so the prompt must use the terminal
+# directly. No terminal (CI, automation) = take the default silently.
+DIR="$DIR_DEFAULT"
+# test -r/-w only checks permission bits; actually opening /dev/tty is what
+# fails when there is no controlling terminal.
+if { : < /dev/tty; } 2>/dev/null; then
+  printf 'Install directory [%s]: ' "$DIR_DEFAULT" > /dev/tty
+  IFS= read -r reply < /dev/tty || reply=""
+  case "$reply" in
+    "") ;;
+    "~") DIR="$HOME" ;;
+    "~/"*) DIR="$HOME/${reply#\~/}" ;;
+    *) DIR="$reply" ;;
+  esac
+fi
 
 mkdir -p "$DIR"
 cat > "$DIR/docker-compose.yml" <<EOF

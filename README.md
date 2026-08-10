@@ -67,8 +67,10 @@ One-line install (needs only Docker):
 curl -fsSL https://raw.githubusercontent.com/nazuraki/LatentForge/main/install.sh | sh
 ```
 
-This pulls the image, starts the stack in `~/latentforge` (override with `LATENTFORGE_HOME`,
-port with `LATENTFORGE_PORT`), and prints the URL. No configuration files: on first visit the
+This pulls the image, starts the stack, and prints the URL. It prompts for the install
+directory (Enter accepts `~/latentforge`; non-interactive runs skip the prompt — seed the
+default with `LATENTFORGE_HOME`, and the port with `LATENTFORGE_PORT`). No configuration
+files: on first visit the
 UI walks through setup — it generates the worker token and stores it in the data volume.
 Until setup completes, worker endpoints refuse requests (they are never open in production).
 First visitor claims setup, so finish it right after installing. Re-running the installer
