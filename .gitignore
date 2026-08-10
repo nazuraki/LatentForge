@@ -12,6 +12,7 @@ worker/models/
 # Build output
 dist/
 dist-ssr/
+*.egg-info/
 
 # Logs
 logs/
