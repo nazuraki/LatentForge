@@ -77,6 +77,21 @@ describe('App', () => {
     expect(screen.getByText('sdxl-1.0')).toBeInTheDocument()
   })
 
+  it('shows result thumbnails and the actual seed on succeeded jobs', async () => {
+    jobs = [
+      job({
+        id: 'j1',
+        status: 'succeeded',
+        output: { images: ['/api/assets/j1-0.png'], seed: 1234 },
+      }),
+    ]
+    render(<App />)
+    const thumb = await screen.findByRole('img', { name: /result for: prompt for j1/i })
+    expect(thumb).toHaveAttribute('src', '/api/assets/j1-0.png')
+    expect(thumb.closest('a')).toHaveAttribute('href', '/api/assets/j1-0.png')
+    expect(screen.getByText('1234')).toBeInTheDocument()
+  })
+
   it('submits a new job and shows it in the list', async () => {
     const user = userEvent.setup()
     render(<App />)

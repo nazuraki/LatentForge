@@ -31,7 +31,7 @@ describe('JobStore', () => {
     const store = new JobStore()
     const job = store.create({ prompt: 'x' })
     store.transition(job.id, 'running')
-    expect(store.transition(job.id, 'failed', 'OOM').error).toBe('OOM')
+    expect(store.transition(job.id, 'failed', { error: 'OOM' }).error).toBe('OOM')
   })
 
   it('rejects invalid transitions', () => {

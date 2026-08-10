@@ -24,6 +24,7 @@ export function JobList({ jobs, onChanged }: JobListProps) {
     <table className="job-table">
       <thead>
         <tr>
+          <th>Result</th>
           <th>Prompt</th>
           <th>Model</th>
           <th>Seed</th>
@@ -35,11 +36,22 @@ export function JobList({ jobs, onChanged }: JobListProps) {
       <tbody>
         {jobs.map((job) => (
           <tr key={job.id}>
+            <td>
+              {job.output?.images.map((src) => (
+                <a key={src} href={src} target="_blank" rel="noreferrer">
+                  <img
+                    className="thumb"
+                    src={src}
+                    alt={`Result for: ${job.request.prompt}`}
+                  />
+                </a>
+              ))}
+            </td>
             <td className="prompt-cell" title={job.request.prompt}>
               {job.request.prompt}
             </td>
             <td>{job.request.model ?? '—'}</td>
-            <td>{job.request.seed ?? '—'}</td>
+            <td>{job.output?.seed ?? job.request.seed ?? '—'}</td>
             <td>
               <span className={`status status-${job.status}`} title={job.error}>
                 {job.status}
