@@ -8,10 +8,12 @@ run on any machine that can reach the backend. Models are single-file checkpoint
 import argparse
 import base64
 import io
+import json
 import logging
 import os
 import random
 import socket
+import struct
 import sys
 import time
 from pathlib import Path
@@ -89,6 +91,44 @@ def pick_device() -> str:
     return "cpu"
 
 
+class UnsupportedCheckpointError(Exception):
+    pass
+
+
+def read_safetensors_keys(path: Path) -> list[str]:
+    """Tensor names from the safetensors header — no tensor data is read."""
+    with path.open("rb") as f:
+        prefix = f.read(8)
+        if len(prefix) < 8:
+            raise UnsupportedCheckpointError(f"not a safetensors file: {path.name}")
+        (header_len,) = struct.unpack("<Q", prefix)
+        try:
+            header = json.loads(f.read(header_len))
+        except (ValueError, MemoryError) as err:
+            raise UnsupportedCheckpointError(f"not a safetensors file: {path.name}") from err
+    return list(header)
+
+
+def detect_pipeline_class(path: Path):
+    """Pick the diffusers pipeline from the checkpoint's tensor key layout.
+
+    Community single-file checkpoints use the original LDM key layout: SDXL-family
+    models (incl. Pony/Illustrious) carry `conditioner.embedders.*`, SD 1.x/2.x carry
+    `cond_stage_model.*`. Anything else (Z-Image, Qwen-based, ...) is unsupported.
+    """
+    from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
+
+    keys = read_safetensors_keys(path)
+    if any(k.startswith("conditioner.embedders.") for k in keys):
+        return StableDiffusionXLPipeline
+    if any(k.startswith("cond_stage_model.") for k in keys):
+        return StableDiffusionPipeline
+    raise UnsupportedCheckpointError(
+        f"unsupported checkpoint architecture: {path.stem} — this worker runs "
+        "Stable Diffusion 1.x/2.x and SDXL-family single-file checkpoints only"
+    )
+
+
 class PipelineCache:
     """Loads pipelines lazily and keeps the most recent one (checkpoints are GBs)."""
 
@@ -101,10 +141,9 @@ class PipelineCache:
         if self.path == path:
             return self.pipeline
         import torch
-        from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 
-        log.info("loading checkpoint %s (device=%s)", path.name, self.device)
-        cls = StableDiffusionXLPipeline if "xl" in path.stem.lower() else StableDiffusionPipeline
+        cls = detect_pipeline_class(path)
+        log.info("loading checkpoint %s as %s (device=%s)", path.name, cls.__name__, self.device)
         dtype = torch.float16 if self.device != "cpu" else torch.float32
         pipeline = cls.from_single_file(str(path), torch_dtype=dtype)
         pipeline.to(self.device)
