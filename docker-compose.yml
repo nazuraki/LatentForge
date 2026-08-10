@@ -19,5 +19,31 @@ services:
       start_period: 10s
       retries: 3
 
+  # GPU worker, opt-in via `--profile worker` (CUDA hosts with
+  # nvidia-container-toolkit only). `just up` is unaffected.
+  worker:
+    build: ./worker
+    profiles: ["worker"]
+    # Workers register under their hostname; give it a stable, readable one.
+    hostname: "${LATENTFORGE_WORKER_NAME:-latentforge-gpu}"
+    environment:
+      LATENTFORGE_BACKEND_URL: http://latentforge:19526
+      LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:-}
+    volumes:
+      - "${LATENTFORGE_MODELS_DIR:-~/.latentforge/models}:/models:ro"
+      - worker-hf-cache:/cache/huggingface
+    depends_on:
+      latentforge:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
 volumes:
   latentforge-data:
+  worker-hf-cache:

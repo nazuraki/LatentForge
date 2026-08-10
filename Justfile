@@ -60,13 +60,17 @@ docker-build:
 up:
     docker compose up -d --build
 
-# Stop the stack (data volume is preserved)
-down:
-    docker compose down
+# Start the stack plus the containerized GPU worker (CUDA host; token in .env)
+up-worker:
+    docker compose --profile worker up -d --build
 
-# Tail backend container logs
+# Stop the stack, including the worker if running (data volumes are preserved)
+down:
+    docker compose --profile worker down
+
+# Tail container logs (backend, plus worker when running)
 logs:
-    docker compose logs -f
+    docker compose --profile worker logs -f
 
 # Remove build artifacts
 clean:

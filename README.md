@@ -19,6 +19,7 @@ audience.
 | `LATENTFORGE_WORKER_TOKEN` | unset               | Shared bearer token required on worker endpoints. Optional everywhere: in production, leaving it unset enables first-run setup in the UI (token stored in the data volume); in dev, unset means open |
 | `LATENTFORGE_STATIC_DIR`   | unset               | Built frontend dir; if it exists, the backend serves it with SPA fallback                        |
 | `LATENTFORGE_MODELS_DIR`   | `~/.latentforge/models` | Worker checkpoint directory (`just worker` points it at `worker/models`)                     |
+| `LATENTFORGE_BACKEND_URL`  | `http://localhost:19526` | Worker: backend base URL (`--backend-url` wins). Set by compose for the containerized worker |
 
 None are required for local development.
 
@@ -102,6 +103,28 @@ Re-run `uv tool install` with `--force` to update. On Linux, plain installs pull
 default CUDA build of PyTorch; for a specific CUDA version or CPU-only, see the
 [PyTorch install matrix](https://pytorch.org/get-started/locally/). (From a checkout,
 `just worker --backend-url ...` still works and uses `worker/models`.)
+
+### Containerized worker
+
+When the GPU lives on the same box as the server (or on any Linux/CUDA machine with
+Docker), the worker can run as a container next to the stack instead — one management
+surface for restarts, logs, and metrics. Requires the NVIDIA driver and
+[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+on the host, plus `LATENTFORGE_WORKER_TOKEN` in `.env` (the container can't read the
+token from the data volume, so the env var is not optional here):
+
+```sh
+just up-worker    # = docker compose --profile worker up -d --build
+```
+
+The `worker` service is behind a compose profile, so plain `just up` never touches it —
+GPU-less deployments are unaffected. It bind-mounts `~/.latentforge/models` read-only at
+`/models` (override the host path with `LATENTFORGE_MODELS_DIR` in `.env`; symlinks and
+NFS mounts work), reaches the backend over the compose network, registers as
+`latentforge-gpu` (override with `LATENTFORGE_WORKER_NAME`), and keeps the Hugging Face
+cache in the `worker-hf-cache` volume across restarts. GPU metrics (VRAM, utilization)
+still come from the host — `docker stats` only sees CPU/memory; pair with
+[dcgm-exporter](https://github.com/NVIDIA/dcgm-exporter) if you want them scraped.
 
 Notes:
 
