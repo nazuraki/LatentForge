@@ -9,6 +9,7 @@ import argparse
 import base64
 import io
 import logging
+import os
 import random
 import socket
 import sys
@@ -19,16 +20,19 @@ import requests
 
 log = logging.getLogger("latentforge.worker")
 
-DEFAULT_MODELS_DIR = (
-    Path.home() / "Library/Application Support/StabilityMatrix/Models/StableDiffusion"
-)
+# Relative default for dev; deployments set LATENTFORGE_MODELS_DIR (or --models-dir).
+DEFAULT_MODELS_DIR = Path(__file__).parent / "models"
 MAX_SEED = 2**32 - 1
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend-url", default="http://localhost:3001")
-    parser.add_argument("--models-dir", type=Path, default=DEFAULT_MODELS_DIR)
+    parser.add_argument(
+        "--models-dir",
+        type=Path,
+        default=os.environ.get("LATENTFORGE_MODELS_DIR", DEFAULT_MODELS_DIR),
+    )
     parser.add_argument("--name", default=socket.gethostname())
     parser.add_argument("--poll-interval", type=float, default=2.0)
     return parser.parse_args()
@@ -36,11 +40,12 @@ def parse_args() -> argparse.Namespace:
 
 def discover_models(models_dir: Path) -> dict[str, Path]:
     """Map model name (file stem) -> checkpoint path."""
+    hint = "set LATENTFORGE_MODELS_DIR or pass --models-dir (checkpoints may be symlinks)"
     if not models_dir.is_dir():
-        sys.exit(f"models dir not found: {models_dir}")
+        sys.exit(f"models dir not found: {models_dir} — {hint}")
     models = {p.stem: p for p in sorted(models_dir.glob("*.safetensors"))}
     if not models:
-        sys.exit(f"no .safetensors checkpoints in {models_dir}")
+        sys.exit(f"no .safetensors checkpoints in {models_dir} — {hint}")
     return models
 
 

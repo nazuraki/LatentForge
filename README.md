@@ -29,8 +29,9 @@ To actually execute jobs, run a worker (requires Python 3.14 and, once, `just wo
 just worker
 ```
 
-By default it discovers `.safetensors` checkpoints in Stability Matrix's
-`Models/StableDiffusion` directory; pass `--models-dir` to point elsewhere.
+The worker discovers `.safetensors` checkpoints in `worker/models/` by default (symlinks
+work — link your existing checkpoints there rather than copying). Deployments and
+nonstandard setups set `LATENTFORGE_MODELS_DIR` or pass `--models-dir`.
 
 ## Development
 
