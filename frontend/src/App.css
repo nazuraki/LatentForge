@@ -10,6 +10,25 @@ main section {
   margin-top: 2.5rem;
 }
 
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 1rem;
+}
+
+.job-table select,
+.job-table input,
+.job-form select {
+  font: inherit;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
 .offline-banner {
   margin-top: 1rem;
   padding: 8px 16px;

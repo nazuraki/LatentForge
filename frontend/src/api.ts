@@ -16,6 +16,7 @@ export interface Job {
   id: string
   status: JobStatus
   request: JobRequest
+  userId?: string
   workerId?: string
   output?: JobOutput
   error?: string
@@ -42,8 +43,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  // Only declare a JSON body when there is one — Fastify 400s on a JSON
+  // content-type with an empty body (bodyless POSTs like logout and cancel).
   const res = await fetch(url, {
-    headers: { 'content-type': 'application/json' },
+    ...(init?.body ? { headers: { 'content-type': 'application/json' } } : {}),
     ...init,
   })
   if (!res.ok) {
@@ -73,13 +76,93 @@ export function listWorkers(): Promise<{ workers: Worker[] }> {
   return request('/api/workers')
 }
 
-export function getSetupStatus(): Promise<{ needed: boolean }> {
+export interface SetupStatus {
+  needed: boolean
+  workerTokenNeeded: boolean
+  adminNeeded: boolean
+}
+
+export interface SetupRequest {
+  workerToken?: string
+  username?: string
+  password?: string
+}
+
+export function getSetupStatus(): Promise<SetupStatus> {
   return request('/api/setup')
 }
 
-export function completeSetup(workerToken?: string): Promise<{ workerToken: string }> {
-  return request('/api/setup', {
+export function completeSetup(body: SetupRequest): Promise<{ workerToken?: string }> {
+  return request('/api/setup', { method: 'POST', body: JSON.stringify(body) })
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+export type Role = 'admin' | 'user'
+
+export interface User {
+  id: string
+  username: string
+  role: Role
+  disabled: boolean
+  tags: string[]
+  createdAt: string
+}
+
+export interface AuthStatus {
+  authRequired: boolean
+  authenticated: boolean
+  user: User | null
+}
+
+export function getAuthStatus(): Promise<AuthStatus> {
+  return request('/api/auth/me')
+}
+
+export function login(username: string, password: string): Promise<{ user: User }> {
+  return request('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
+}
+
+export function logout(): Promise<{ ok: boolean }> {
+  return request('/api/auth/logout', { method: 'POST' })
+}
+
+// ── Admin: users and model tags ──────────────────────────────────────────────
+
+export interface UserUpdate {
+  password?: string
+  role?: Role
+  disabled?: boolean
+  tags?: string[]
+}
+
+export function listUsers(): Promise<{ users: User[] }> {
+  return request('/api/users')
+}
+
+export function createUser(
+  username: string,
+  password: string,
+  role: Role,
+  tags: string[],
+): Promise<User> {
+  return request('/api/users', {
     method: 'POST',
-    body: JSON.stringify(workerToken ? { workerToken } : {}),
+    body: JSON.stringify({ username, password, role, ...(tags.length ? { tags } : {}) }),
+  })
+}
+
+export function updateUser(id: string, update: UserUpdate): Promise<User> {
+  return request(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(update) })
+}
+
+export function getModelTags(): Promise<{ models: Record<string, string[]> }> {
+  return request('/api/model-tags')
+}
+
+export function setModelTags(model: string, tags: string[]): Promise<{ model: string; tags: string[] }> {
+  return request(`/api/model-tags/${encodeURIComponent(model)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ tags }),
   })
 }

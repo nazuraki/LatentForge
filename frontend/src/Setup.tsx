@@ -1,17 +1,22 @@
 import { useState, type FormEvent } from 'react'
-import { completeSetup } from './api'
+import { completeSetup, type SetupStatus } from './api'
 
 interface SetupProps {
+  status: SetupStatus
   onDone: () => void
 }
 
 /**
- * First-run setup: creates the worker token (generated unless the user pastes
- * their own) and shows it exactly once — the server never returns it again.
+ * First-run setup: creates the initial admin account (which is signed in via
+ * cookie) and the worker token (generated unless the user pastes their own).
+ * The token is shown exactly once — the server never returns it again.
  */
-export function Setup({ onDone }: SetupProps) {
+export function Setup({ status, onDone }: SetupProps) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [customToken, setCustomToken] = useState('')
   const [token, setToken] = useState<string | undefined>()
+  const [done, setDone] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | undefined>()
@@ -21,8 +26,16 @@ export function Setup({ onDone }: SetupProps) {
     setSubmitting(true)
     setError(undefined)
     try {
-      const res = await completeSetup(customToken.trim() || undefined)
-      setToken(res.workerToken)
+      const res = await completeSetup({
+        ...(status.workerTokenNeeded && customToken.trim() ? { workerToken: customToken.trim() } : {}),
+        ...(status.adminNeeded ? { username: username.trim(), password } : {}),
+      })
+      if (res.workerToken) {
+        setToken(res.workerToken)
+      } else {
+        setDone(true)
+        onDone()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'setup failed')
     } finally {
@@ -35,6 +48,8 @@ export function Setup({ onDone }: SetupProps) {
     await navigator.clipboard.writeText(token)
     setCopied(true)
   }
+
+  if (done) return null
 
   if (token) {
     return (
@@ -65,22 +80,52 @@ export function Setup({ onDone }: SetupProps) {
     <section className="setup" aria-labelledby="setup-heading">
       <h2 id="setup-heading">Welcome to LatentForge</h2>
       <p>
-        One thing to set up: workers authenticate to this server with a shared token. Generate one
-        (recommended) or paste your own. It is stored on the server — you never need a config file.
+        {status.adminNeeded
+          ? 'Create the admin account for this server.'
+          : 'One thing to set up: workers authenticate to this server with a shared token.'}
+        {status.adminNeeded && status.workerTokenNeeded
+          ? ' Workers authenticate with a shared token — generate one (recommended) or paste your own; it is stored on the server.'
+          : ''}
       </p>
       <form className="job-form" onSubmit={handleSubmit}>
-        <label>
-          Worker token (leave blank to generate)
-          <input
-            value={customToken}
-            onChange={(e) => setCustomToken(e.target.value)}
-            placeholder="generated for you"
-            autoComplete="off"
-          />
-        </label>
+        {status.adminNeeded && (
+          <>
+            <label>
+              Admin username
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                required
+              />
+            </label>
+            <label>
+              Admin password (at least 8 characters)
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+            </label>
+          </>
+        )}
+        {status.workerTokenNeeded && (
+          <label>
+            Worker token (leave blank to generate)
+            <input
+              value={customToken}
+              onChange={(e) => setCustomToken(e.target.value)}
+              placeholder="generated for you"
+              autoComplete="off"
+            />
+          </label>
+        )}
         <div className="job-form-row">
           <button type="submit" disabled={submitting}>
-            {customToken.trim() ? 'Use this token' : 'Generate token'}
+            {status.adminNeeded ? 'Create admin' : customToken.trim() ? 'Use this token' : 'Generate token'}
           </button>
         </div>
         {error && (
