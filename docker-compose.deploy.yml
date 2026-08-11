@@ -51,8 +51,11 @@ services:
 
   # HTTPS front door for the UI/API (mirrors the nazu/backplane tls profile).
   # Certs are user-provided absolute host paths, mirrored into the container
-  # so the path is valid as-is. The :- defaults keep compose parseable when
-  # tls is unconfigured. Enable with COMPOSE_PROFILES=tls in .env.
+  # so the path is valid as-is. The Caddyfile is generated inline by the
+  # command — a relative bind mount would resolve against the host filesystem
+  # when compose runs inside a container (e.g. backplane-managed deploys),
+  # where the checkout doesn't exist. The :- defaults keep compose parseable
+  # when tls is unconfigured. Enable with COMPOSE_PROFILES=tls in .env.
   caddy:
     image: caddy:2-alpine
     profiles: ["tls"]
@@ -76,9 +79,14 @@ services:
         : "$${LATENTFORGE_HOSTNAME:?LATENTFORGE_HOSTNAME is required when the tls profile is active}"
         : "$${LATENTFORGE_TLS_CERT:?LATENTFORGE_TLS_CERT is required when the tls profile is active}"
         : "$${LATENTFORGE_TLS_KEY:?LATENTFORGE_TLS_KEY is required when the tls profile is active}"
-        exec caddy run --config /config/Caddyfile --adapter caddyfile
+        cat > /tmp/Caddyfile <<'CADDYFILE'
+        {$$LATENTFORGE_HOSTNAME}:{$$LATENTFORGE_HTTPS_PORT} {
+          tls {$$LATENTFORGE_TLS_CERT} {$$LATENTFORGE_TLS_KEY}
+          reverse_proxy latentforge:19526
+        }
+        CADDYFILE
+        exec caddy run --config /tmp/Caddyfile --adapter caddyfile
     volumes:
-      - ./caddy/Caddyfile:/config/Caddyfile:ro
       - ${LATENTFORGE_TLS_CERT:-/etc/ssl/latentforge/cert.pem}:${LATENTFORGE_TLS_CERT:-/etc/ssl/latentforge/cert.pem}:ro
       - ${LATENTFORGE_TLS_KEY:-/etc/ssl/latentforge/key.pem}:${LATENTFORGE_TLS_KEY:-/etc/ssl/latentforge/key.pem}:ro
       - caddy-data:/data
