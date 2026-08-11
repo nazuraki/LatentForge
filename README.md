@@ -84,6 +84,13 @@ To deploy from a checkout instead, `just up` builds and starts the same stack lo
 Pre-setting `LATENTFORGE_WORKER_TOKEN` in the environment (or a `.env` next to the compose
 file) skips first-run setup; the env var always wins over the stored token.
 
+For deploy tooling that git-clones this repo and drives compose itself (e.g. a deploy
+control plane), use [docker-compose.deploy.yml](docker-compose.deploy.yml) — the same
+image-based stack the installer generates, kept in the repo so clone-and-`compose up`
+deploys don't build from source. Provide `LATENTFORGE_WORKER_TOKEN` (and an absolute
+`LATENTFORGE_MODELS_DIR` if the deployer's `$HOME` differs from the host user's) via a
+`.env` in the checkout root.
+
 The UI and API are at `http://<server>:19526`. Workers run wherever the GPU is (not in the
 container) and authenticate with the token from setup. No checkout needed — install the
 worker as a tool with [uv](https://docs.astral.sh/uv/) (Python 3.10+):

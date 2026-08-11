@@ -1,0 +1,54 @@
+# Image-based compose for externally managed deploys (e.g. a deploy control
+# plane that git-clones this repo and runs `docker compose -f
+# docker-compose.deploy.yml`). Mirrors what install.sh generates; the root
+# docker-compose.yml builds from source and stays the dev entry point.
+#
+# Expects LATENTFORGE_WORKER_TOKEN (and, when the deployer's $HOME is not the
+# host user's, an absolute LATENTFORGE_MODELS_DIR) in the environment or a
+# `.env` next to the checkout root.
+services:
+  latentforge:
+    image: ghcr.io/nazuraki/latentforge:latest
+    ports:
+      - "${LATENTFORGE_PORT:-19526}:19526"
+    environment:
+      LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:-}
+    volumes:
+      - latentforge-data:/data
+    restart: unless-stopped
+    healthcheck:
+      # slim image has no curl/wget; node fetch does the job
+      test: ["CMD", "node", "-e", "fetch('http://localhost:19526/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # GPU worker, opt-in via the `worker` profile (CUDA hosts with
+  # nvidia-container-toolkit only).
+  worker:
+    image: ghcr.io/nazuraki/latentforge-worker:latest
+    profiles: ["worker"]
+    # Workers register under their hostname; give it a stable, readable one.
+    hostname: "${LATENTFORGE_WORKER_NAME:-latentforge-gpu}"
+    environment:
+      LATENTFORGE_BACKEND_URL: http://latentforge:19526
+      LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:-}
+    volumes:
+      - "${LATENTFORGE_MODELS_DIR:-~/.latentforge/models}:/models:ro"
+      - worker-hf-cache:/cache/huggingface
+    depends_on:
+      latentforge:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  latentforge-data:
+  worker-hf-cache:
