@@ -114,6 +114,28 @@ default CUDA build of PyTorch; for a specific CUDA version or CPU-only, see the
 [PyTorch install matrix](https://pytorch.org/get-started/locally/). (From a checkout,
 `just worker --backend-url ...` still works and uses `worker/models`.)
 
+### HTTPS
+
+The stack serves plain HTTP. For HTTPS on the LAN, an opt-in `tls` compose profile adds a
+[Caddy](https://caddyserver.com/) front door (same pattern as the nazu stack and the
+backplane): it terminates TLS with a cert you provide and reverse-proxies to the backend,
+with an HTTP→HTTPS redirect on port 80. Set in `.env` next to the compose file:
+
+```sh
+COMPOSE_PROFILES=tls            # append to the existing value if worker is enabled
+LATENTFORGE_HOSTNAME=forge.example.lan
+LATENTFORGE_TLS_CERT=/absolute/path/to/cert.pem
+LATENTFORGE_TLS_KEY=/absolute/path/to/key.pem
+```
+
+Then `just up` (or re-run the installer, or `docker compose up -d` in the install
+directory). Caddy publishes 443 and 80 by default; override with
+`LATENTFORGE_HTTPS_PORT` / `LATENTFORGE_HTTP_PORT` if those are taken — redirect URLs
+track the override. Cert and key are host paths bind-mounted read-only into the
+container; caddy refuses to start if the hostname, cert, or key is unset. The plain-HTTP
+port stays published, so workers can keep using `http://<server>:19526` while browsers
+use `https://<hostname>`.
+
 ### Containerized worker
 
 When the GPU lives on the same box as the server (or on any Linux/CUDA machine with
