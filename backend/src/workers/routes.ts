@@ -1,6 +1,7 @@
 import type { FastifyInstance, onRequestHookHandler } from 'fastify'
 import type { AssetStore } from '../assets/store.ts'
 import { InvalidTransitionError, type JobOutput, type JobStore } from '../jobs/store.ts'
+import type { UserStore } from '../users/store.ts'
 import type { WorkerRegistration, WorkerStore } from './store.ts'
 
 const registerSchema = {
@@ -42,6 +43,8 @@ export function workerRoutes(
   jobs: JobStore,
   assets: AssetStore,
   onRequest: onRequestHookHandler[],
+  users: UserStore,
+  sessionAuth: onRequestHookHandler[],
 ) {
 
   app.post<{ Body: WorkerRegistration }>(
@@ -50,7 +53,14 @@ export function workerRoutes(
     async (req, reply) => reply.code(201).send(workers.register(req.body)),
   )
 
-  app.get('/api/workers', () => ({ workers: workers.list() }))
+  // UI-facing: models are narrowed to the caller's allowed set, so the model
+  // picker only ever offers what the user may actually run.
+  app.get('/api/workers', { onRequest: sessionAuth }, (req) => {
+    const user = req.user as NonNullable<typeof req.user>
+    return {
+      workers: workers.list().map((w) => ({ ...w, models: users.filterModels(user, w.models) })),
+    }
+  })
 
   app.post<{ Params: { id: string } }>(
     '/api/workers/:id/heartbeat',

@@ -4,11 +4,13 @@ import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyServerOptions } from 'fastify'
 import { assetRoutes } from './assets/routes.ts'
 import { AssetStore } from './assets/store.ts'
-import { requireBearerToken, requireResolvedBearerToken } from './auth.ts'
+import { requireBearerToken, requireResolvedBearerToken, requireSession } from './auth.ts'
 import { jobRoutes } from './jobs/routes.ts'
 import { JobStore } from './jobs/store.ts'
 import { settingsRoutes } from './settings/routes.ts'
 import { SettingsStore, WORKER_TOKEN_KEY } from './settings/store.ts'
+import { userRoutes } from './users/routes.ts'
+import { UserStore } from './users/store.ts'
 import { workerRoutes } from './workers/routes.ts'
 import { WorkerStore } from './workers/store.ts'
 
@@ -21,10 +23,11 @@ export interface AppConfig {
   /** Shared bearer token required on worker-facing endpoints. Unset = open (dev/tests). */
   workerToken?: string
   /**
-   * First-run setup: when true and no workerToken is set, the token is managed
-   * through POST /api/setup and stored in the settings table; worker endpoints
-   * return 503 until it exists. Production runs with this on so a deployed
-   * server is never open. A workerToken from the environment disables setup.
+   * First-run setup + auth: when true, UI routes require a login session and
+   * POST /api/setup bootstraps the initial admin account (plus the worker
+   * token, unless one came from the environment — env always wins for the
+   * token). Gated routes return 503 until setup completes, so a production
+   * server is never open pre-setup. Off (dev/tests) = fully open.
    */
   requireSetup?: boolean
   /** Built frontend to serve (SPA fallback included). Served only if the directory exists. */
@@ -46,6 +49,9 @@ export function buildApp(opts: FastifyServerOptions = {}, config: AppConfig = {}
     ? new SettingsStore(join(config.dataDir, 'latentforge.db'))
     : new SettingsStore()
   const workers = new WorkerStore()
+  const users = config.dataDir
+    ? new UserStore(join(config.dataDir, 'latentforge.db'))
+    : new UserStore()
   const assets = new AssetStore(
     config.dataDir ? join(config.dataDir, 'assets') : resolve('data/assets'),
   )
@@ -56,6 +62,7 @@ export function buildApp(opts: FastifyServerOptions = {}, config: AppConfig = {}
   app.addHook('onClose', () => {
     jobs.close()
     settings.close()
+    users.close()
   })
 
   const setupManaged = !config.workerToken && Boolean(config.requireSetup)
@@ -72,11 +79,17 @@ export function buildApp(opts: FastifyServerOptions = {}, config: AppConfig = {}
     app.log.warn('LATENTFORGE_WORKER_TOKEN unset — worker endpoints are unauthenticated')
   }
 
+  // UI routes require a login session whenever setup mode is on; an env-provided
+  // worker token covers workers only, never the browser side.
+  const authEnabled = Boolean(config.requireSetup)
+  const sessionAuth = [requireSession({ enabled: authEnabled, users })]
+
   app.get('/api/health', () => ({ status: 'ok' }))
-  jobRoutes(app, jobs)
-  workerRoutes(app, workers, jobs, assets, workerAuth)
-  settingsRoutes(app, settings, setupManaged)
-  assetRoutes(app, assets)
+  jobRoutes(app, jobs, users, sessionAuth)
+  workerRoutes(app, workers, jobs, assets, workerAuth, users, sessionAuth)
+  settingsRoutes(app, settings, users, { tokenManaged: setupManaged, authEnabled })
+  assetRoutes(app, assets, sessionAuth)
+  userRoutes(app, users, sessionAuth, authEnabled)
 
   if (config.staticDir && existsSync(config.staticDir)) {
     app.register(fastifyStatic, { root: resolve(config.staticDir) })

@@ -21,6 +21,8 @@ export interface Job {
   id: string
   status: JobStatus
   request: JobRequest
+  /** Owner; absent on jobs created before auth existed (visible to admins only). */
+  userId?: string
   workerId?: string
   output?: JobOutput
   error?: string
@@ -43,6 +45,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   id         TEXT PRIMARY KEY,
   status     TEXT NOT NULL,
   request    TEXT NOT NULL,
+  user_id    TEXT,
   worker_id  TEXT,
   output     TEXT,
   error      TEXT,
@@ -56,6 +59,7 @@ interface JobRow {
   id: string
   status: JobStatus
   request: string
+  user_id: string | null
   worker_id: string | null
   output: string | null
   error: string | null
@@ -70,9 +74,14 @@ export class JobStore {
     this.db = new Database(dbPath)
     this.db.pragma('journal_mode = WAL')
     this.db.exec(SCHEMA)
+    // Databases created before per-user jobs lack the column.
+    const cols = this.db.pragma('table_info(jobs)') as { name: string }[]
+    if (!cols.some((c) => c.name === 'user_id')) {
+      this.db.exec('ALTER TABLE jobs ADD COLUMN user_id TEXT')
+    }
   }
 
-  create(request: JobRequest): Job {
+  create(request: JobRequest, userId?: string): Job {
     const now = new Date().toISOString()
     const job: Job = {
       id: randomUUID(),
@@ -81,11 +90,13 @@ export class JobStore {
       createdAt: now,
       updatedAt: now,
     }
+    if (userId !== undefined) job.userId = userId
     this.db
       .prepare(
-        `INSERT INTO jobs (id, status, request, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO jobs (id, status, request, user_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      .run(job.id, job.status, JSON.stringify(request), now, now)
+      .run(job.id, job.status, JSON.stringify(request), userId ?? null, now, now)
     return job
   }
 
@@ -94,13 +105,22 @@ export class JobStore {
     return row && rowToJob(row)
   }
 
-  /** Newest first (strict creation order via rowid), optionally filtered by status. */
-  list(status?: JobStatus): Job[] {
-    const rows = (
-      status
-        ? this.db.prepare('SELECT * FROM jobs WHERE status = ? ORDER BY rowid DESC').all(status)
-        : this.db.prepare('SELECT * FROM jobs ORDER BY rowid DESC').all()
-    ) as JobRow[]
+  /** Newest first (strict creation order via rowid), optionally filtered by status and owner. */
+  list(status?: JobStatus, userId?: string): Job[] {
+    const where: string[] = []
+    const args: string[] = []
+    if (status) {
+      where.push('status = ?')
+      args.push(status)
+    }
+    if (userId !== undefined) {
+      where.push('user_id = ?')
+      args.push(userId)
+    }
+    const clause = where.length ? ` WHERE ${where.join(' AND ')}` : ''
+    const rows = this.db
+      .prepare(`SELECT * FROM jobs${clause} ORDER BY rowid DESC`)
+      .all(...args) as JobRow[]
     return rows.map(rowToJob)
   }
 
@@ -153,6 +173,7 @@ function rowToJob(row: JobRow): Job {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
+  if (row.user_id !== null) job.userId = row.user_id
   if (row.worker_id !== null) job.workerId = row.worker_id
   if (row.output !== null) job.output = JSON.parse(row.output)
   if (row.error !== null) job.error = row.error
