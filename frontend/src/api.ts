@@ -43,8 +43,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  // Only declare a JSON body when there is one — Fastify 400s on a JSON
+  // content-type with an empty body (bodyless POSTs like logout and cancel).
   const res = await fetch(url, {
-    headers: { 'content-type': 'application/json' },
+    ...(init?.body ? { headers: { 'content-type': 'application/json' } } : {}),
     ...init,
   })
   if (!res.ok) {

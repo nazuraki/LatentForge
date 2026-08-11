@@ -235,6 +235,11 @@ describe('App', () => {
     await user.click(await screen.findByRole('button', { name: /cancel job/i }))
     expect(await screen.findByText('canceled')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /cancel job/i })).not.toBeInTheDocument()
+    // Bodyless POSTs must not claim a JSON body — Fastify rejects that with 400.
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/jobs/j1/cancel',
+      expect.not.objectContaining({ headers: expect.anything() }),
+    )
   })
 
   it('shows an offline banner when the API is unreachable', async () => {
