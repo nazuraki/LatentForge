@@ -1,0 +1,23 @@
+# Edge-host override: joins the backend to a shared external `edge` docker
+# network so a host-level reverse proxy (one Caddy owning 80/443 for the whole
+# box) can reverse_proxy to `latentforge:19526` by container name — no
+# per-app TLS, no extra published ports. HTTPS termination, certs, and
+# hostname routing all live in that edge stack.
+#
+# Opt-in — local dev never needs it (the network is `external` and only
+# exists on edge hosts; one-time host prep: `docker network create edge`).
+# Enable by listing both files, e.g. in .env:
+#
+#   COMPOSE_FILE=docker-compose.deploy.yml:docker-compose.edge.yml
+#
+# or, for a managed deploy, listing both files in the project's compose-files
+# config. Works with either base file (root or deploy).
+services:
+  latentforge:
+    networks:
+      default: {}
+      edge: {}
+
+networks:
+  edge:
+    external: true

@@ -65,7 +65,7 @@ set_env() {
 }
 
 # Add a profile to COMPOSE_PROFILES in .env without dropping ones the user set
-# by hand (e.g. tls).
+# by hand.
 add_profile() {
   existing="$(grep '^COMPOSE_PROFILES=' "$DIR/.env" 2>/dev/null | cut -d= -f2-)" || existing=""
   case ",$existing," in
@@ -158,47 +158,9 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
-  # HTTPS front door — dormant unless COMPOSE_PROFILES includes tls. Certs are
-  # user-provided absolute host paths, mirrored into the container so the path
-  # is valid as-is. The Caddyfile is generated inline by the command, so the
-  # service needs no config files on disk.
-  caddy:
-    image: caddy:2-alpine
-    profiles: ["tls"]
-    ports:
-      - "\${LATENTFORGE_HTTP_PORT:-80}:80"
-      - "\${LATENTFORGE_HTTPS_PORT:-443}:\${LATENTFORGE_HTTPS_PORT:-443}"
-    environment:
-      LATENTFORGE_HOSTNAME: \${LATENTFORGE_HOSTNAME:-}
-      LATENTFORGE_HTTPS_PORT: \${LATENTFORGE_HTTPS_PORT:-443}
-      LATENTFORGE_TLS_CERT: \${LATENTFORGE_TLS_CERT:-}
-      LATENTFORGE_TLS_KEY: \${LATENTFORGE_TLS_KEY:-}
-    command:
-      - sh
-      - -c
-      - |
-        : "\$\${LATENTFORGE_HOSTNAME:?LATENTFORGE_HOSTNAME is required when the tls profile is active}"
-        : "\$\${LATENTFORGE_TLS_CERT:?LATENTFORGE_TLS_CERT is required when the tls profile is active}"
-        : "\$\${LATENTFORGE_TLS_KEY:?LATENTFORGE_TLS_KEY is required when the tls profile is active}"
-        cat > /tmp/Caddyfile <<'CADDYFILE'
-        {\$\$LATENTFORGE_HOSTNAME}:{\$\$LATENTFORGE_HTTPS_PORT} {
-          tls {\$\$LATENTFORGE_TLS_CERT} {\$\$LATENTFORGE_TLS_KEY}
-          reverse_proxy latentforge:19526
-        }
-        CADDYFILE
-        exec caddy run --config /tmp/Caddyfile --adapter caddyfile
-    volumes:
-      - \${LATENTFORGE_TLS_CERT:-/etc/ssl/latentforge/cert.pem}:\${LATENTFORGE_TLS_CERT:-/etc/ssl/latentforge/cert.pem}:ro
-      - \${LATENTFORGE_TLS_KEY:-/etc/ssl/latentforge/key.pem}:\${LATENTFORGE_TLS_KEY:-/etc/ssl/latentforge/key.pem}:ro
-      - caddy-data:/data
-    restart: unless-stopped
-    depends_on:
-      - latentforge
-
 volumes:
   latentforge-data:
   worker-hf-cache:
-  caddy-data:
 EOF
 
 cd "$DIR"
@@ -215,11 +177,6 @@ if [ "$WORKER" = "1" ]; then
   echo "  GPU worker enabled — checkpoints are read from ~/.latentforge/models"
   echo "  (override with LATENTFORGE_MODELS_DIR in $DIR/.env)."
 fi
-echo
-echo "  For HTTPS on the LAN, set LATENTFORGE_HOSTNAME, LATENTFORGE_TLS_CERT,"
-echo "  LATENTFORGE_TLS_KEY, and COMPOSE_PROFILES=tls in $DIR/.env and re-run"
-echo "  this installer. Ports default to 443/80; override with"
-echo "  LATENTFORGE_HTTPS_PORT / LATENTFORGE_HTTP_PORT if those are taken."
 echo
 echo "  Installed in: $DIR"
 echo "  Stop with:    docker compose -f $DIR/docker-compose.yml down"
