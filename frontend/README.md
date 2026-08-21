@@ -1,32 +1,46 @@
-# React + TypeScript + Vite
+# LatentForge frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite + TypeScript single-page app, served by the backend in
+production (`LATENTFORGE_STATIC_DIR`) and by Vite in development (`just dev`,
+which proxies `/api` to the backend on port 19526).
 
-Currently, two official plugins are available:
+## Design system
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The UI consumes the shared nazuraki design system
+([ui-std-lib](https://github.com/nazuraki/ui-std-lib)) — theme `neon-butterfly`:
 
-## React Compiler
+- `@nazuraki/styles` — tokens (`--nb-*`), base styles, and `nb-*` component
+  classes. Imported once in `src/main.tsx`; `.nb-bg` on `<body>` in
+  `index.html` applies the page background. JetBrains Mono is loaded from
+  Google Fonts in `index.html`.
+- `@nazuraki/ui-react` — `Button`, `Card`, `Field`/`Input`/`Select`/`Textarea`,
+  `Alert`, `Badge`, etc. Tables use the `.nb-table` class directly.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+`src/index.css` holds only app layout (brand heading, form rows, table
+thumbnails) and uses tokens exclusively — no literal colors or fonts. Don't add
+bespoke component styles; if the library lacks something, file an issue on
+ui-std-lib. The `design-system` skill in `.claude/skills/` documents the rules.
 
-## Expanding the Oxlint configuration
+## Layout
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+src/
+  App.tsx            shell: setup → login → dashboard (jobs, workers, admin)
+  JobForm.tsx        prompt / model / seed submission
+  JobList.tsx        job table with status badges, thumbnails, cancel
+  WorkerList.tsx     registered workers and their models
+  Login.tsx, Setup.tsx
+  Admin.tsx          admin panel; sub-views in admin/ (users, create user, model tags)
+  api.ts             typed fetch wrappers for /api
+  App.test.tsx       Vitest + Testing Library, fetch stubbed
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Commands
+
+```
+npm run dev        # Vite dev server
+npm run build      # tsc -b && vite build → dist/
+npm run lint       # oxlint
+npm run typecheck  # tsc -b
+npm test           # vitest run
+```

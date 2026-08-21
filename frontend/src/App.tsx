@@ -1,5 +1,5 @@
+import { Alert, Button, Card } from '@nazuraki/ui-react'
 import { useCallback, useEffect, useState } from 'react'
-import './App.css'
 import { Admin } from './Admin'
 import {
   ApiError,
@@ -83,8 +83,8 @@ function App() {
 
   if (setup.needed) {
     return (
-      <main>
-        <h1>LatentForge</h1>
+      <main className="narrow">
+        <h1 className="brand">LatentForge</h1>
         <Setup status={setup} onDone={loadStatus} />
       </main>
     )
@@ -92,8 +92,8 @@ function App() {
 
   if (auth.authRequired && !auth.authenticated) {
     return (
-      <main>
-        <h1>LatentForge</h1>
+      <main className="narrow">
+        <h1 className="brand">LatentForge</h1>
         <Login onLoggedIn={handleLoggedIn} />
       </main>
     )
@@ -104,38 +104,44 @@ function App() {
 
   return (
     <main>
-      <h1>LatentForge</h1>
-      <p>Distributed image generation with workflow automation and managed assets.</p>
+      <h1 className="brand">LatentForge</h1>
+      <p className="tagline">
+        Distributed image generation with workflow automation and managed assets.
+      </p>
       {(auth.authRequired || isAdmin) && (
         <p className="topbar">
           {auth.user && <span>Signed in as {auth.user.username}</span>}
           {isAdmin && (
-            <button type="button" className="cancel" onClick={() => setShowAdmin(!showAdmin)}>
+            <Button type="button" onClick={() => setShowAdmin(!showAdmin)}>
               {showAdmin ? 'Hide admin' : 'Admin'}
-            </button>
+            </Button>
           )}
           {auth.authRequired && (
-            <button type="button" className="cancel" onClick={handleLogout}>
+            <Button type="button" onClick={handleLogout}>
               Sign out
-            </button>
+            </Button>
           )}
         </p>
       )}
       {offline && (
-        <p className="offline-banner" role="alert">
+        <Alert variant="warning" className="panel">
           Backend unreachable — is the API server running? (<code>just dev-backend</code>)
-        </p>
+        </Alert>
       )}
       {showAdmin && isAdmin && <Admin models={models} selfId={auth.user?.id} />}
-      <section aria-labelledby="jobs-heading">
-        <h2 id="jobs-heading">Jobs</h2>
-        <JobForm onCreated={refresh} />
-        <JobList jobs={jobs} onChanged={refresh} />
-      </section>
-      <section aria-labelledby="workers-heading">
-        <h2 id="workers-heading">Workers</h2>
-        <WorkerList workers={workers} />
-      </section>
+      <Card className="panel">
+        <section aria-labelledby="jobs-heading">
+          <h2 id="jobs-heading">Jobs</h2>
+          <JobForm onCreated={refresh} />
+          <JobList jobs={jobs} onChanged={refresh} />
+        </section>
+      </Card>
+      <Card className="panel">
+        <section aria-labelledby="workers-heading">
+          <h2 id="workers-heading">Workers</h2>
+          <WorkerList workers={workers} />
+        </section>
+      </Card>
     </main>
   )
 }

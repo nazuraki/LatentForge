@@ -13,6 +13,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@nazuraki/styles": "^0.2.1",
+    "@nazuraki/ui-react": "^0.2.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

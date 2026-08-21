@@ -1,111 +1,165 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+/* App-specific layout on top of @nazuraki/styles (neon-butterfly).
+ * Only --nb-* tokens here — component looks come from the design system. */
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
+main {
+  max-width: 64rem;
   margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
+  padding: var(--nb-space-5) var(--nb-space-4);
+}
+
+/* Brand heading: lilac with glow, per design.md. */
+.brand {
+  margin: 0 0 var(--nb-space-2);
+  font-size: 1.6rem;
+  text-transform: uppercase;
+  letter-spacing: var(--nb-tracking-wide);
+  color: var(--nb-primary);
+  text-shadow: 0 0 12px var(--nb-primary-glow);
+}
+
+.tagline {
+  margin: 0 0 var(--nb-space-4);
+  color: var(--nb-faint);
+  font-size: var(--nb-text-sm);
+}
+
+h2,
+h3 {
+  text-transform: uppercase;
+  letter-spacing: var(--nb-tracking-wide);
+}
+
+h2 {
+  margin: 0 0 var(--nb-space-3);
+  font-size: 1.05rem;
+}
+
+h3 {
+  margin: var(--nb-space-4) 0 var(--nb-space-2);
+  font-size: var(--nb-text-sm);
+  color: var(--nb-faint);
+}
+
+p {
+  font-size: var(--nb-text-sm);
+  line-height: 1.5;
+}
+
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--nb-space-3);
+  margin-bottom: var(--nb-space-4);
+  font-size: var(--nb-text-sm);
+  color: var(--nb-faint);
+}
+
+.panel {
+  margin-bottom: var(--nb-space-4);
+}
+
+.narrow {
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+/* Inline form row: fields share the line, submit button hugs the baseline. */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nb-space-3);
+  align-items: flex-end;
+  margin-bottom: var(--nb-space-3);
+}
+
+.form-row > .nb-field {
+  flex: 1;
+  min-width: 10rem;
+  margin-bottom: 0;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nb-space-2);
+  align-items: center;
+  margin-top: var(--nb-space-3);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+/* Inline editors inside tables stay compact. */
+.nb-table .nb-input,
+.nb-table .nb-select {
+  min-width: 8rem;
+}
+
+.thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid var(--nb-border);
+  border-radius: var(--nb-radius);
+}
+
+.prompt-cell {
+  max-width: 20rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--nb-faint);
+  font-style: italic;
+}
+
+.worker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+  gap: var(--nb-space-2);
+  font-size: var(--nb-text-sm);
 }
 
-body {
-  margin: 0;
+.worker-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--nb-space-2);
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+.worker-models {
+  color: var(--nb-faint);
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
+/* One-time secret display: selectable, lilac-framed. */
+.token {
+  display: inline-block;
+  padding: var(--nb-space-2) var(--nb-space-3);
+  border: 1px solid var(--nb-primary-border);
+  border-radius: var(--nb-radius);
+  background: var(--nb-surface);
+  color: var(--nb-primary);
+  word-break: break-all;
+  user-select: all;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+/* Terminal/command block (candidate for ui-std-lib). */
+pre.command {
+  padding: var(--nb-space-2) var(--nb-space-3);
+  border: 1px solid var(--nb-border);
+  border-radius: var(--nb-radius);
+  background: var(--nb-surface);
+  font-size: 13px;
+  overflow-x: auto;
 }
 
 code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  color: var(--nb-primary);
 }
