@@ -1,3 +1,4 @@
+import { Alert, Button, Card, Field, Input } from '@nazuraki/ui-react'
 import { useState, type FormEvent } from 'react'
 import { login, type User } from './api'
 
@@ -26,39 +27,41 @@ export function Login({ onLoggedIn }: LoginProps) {
   }
 
   return (
-    <section className="setup" aria-labelledby="login-heading">
-      <h2 id="login-heading">Sign in</h2>
-      <form className="job-form" onSubmit={handleSubmit}>
-        <label>
-          Username
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            required
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
-        <div className="job-form-row">
-          <button type="submit" disabled={submitting || !username || !password}>
-            Sign in
-          </button>
-        </div>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-      </form>
-    </section>
+    <Card>
+      <section aria-labelledby="login-heading">
+        <h2 id="login-heading">Sign in</h2>
+        <form onSubmit={handleSubmit}>
+          <Field label="Username" htmlFor="login-username">
+            <Input
+              id="login-username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              required
+            />
+          </Field>
+          <Field label="Password" htmlFor="login-password">
+            <Input
+              id="login-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </Field>
+          {error && (
+            <Alert variant="danger" className="panel">
+              {error}
+            </Alert>
+          )}
+          <div className="form-actions">
+            <Button type="submit" variant="primary" disabled={submitting || !username || !password}>
+              Sign in
+            </Button>
+          </div>
+        </form>
+      </section>
+    </Card>
   )
 }
