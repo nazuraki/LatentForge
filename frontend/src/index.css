@@ -34,27 +34,47 @@ main {
   text-decoration: none;
 }
 
-.profile-menu {
+.topnav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--nb-space-2);
+}
+
+.menu-anchor {
   position: relative;
 }
 
-.avatar {
+/* Icon-sized nav triggers (gear, avatar). */
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
-  border: 1px solid var(--nb-primary-border);
+  border: 1px solid var(--nb-border);
   background: var(--nb-surface);
-  color: var(--nb-primary);
+  color: var(--nb-faint);
   font: inherit;
   font-weight: var(--nb-font-weight-bold);
   text-transform: uppercase;
   cursor: pointer;
-  transition: box-shadow var(--nb-transition);
+  transition:
+    box-shadow var(--nb-transition),
+    color var(--nb-transition),
+    border-color var(--nb-transition);
 }
 
-.avatar:hover,
-.avatar:focus-visible,
-.avatar[aria-expanded='true'] {
+.nav-icon.avatar {
+  border-color: var(--nb-primary-border);
+  color: var(--nb-primary);
+}
+
+.nav-icon:hover,
+.nav-icon:focus-visible,
+.nav-icon[aria-expanded='true'] {
+  color: var(--nb-primary);
+  border-color: var(--nb-primary-border);
   box-shadow: 0 0 12px var(--nb-primary-glow);
   outline: none;
 }
@@ -73,7 +93,7 @@ main {
   box-shadow: 0 0 20px var(--nb-primary-glow);
 }
 
-.menu-user {
+.menu-header {
   padding: var(--nb-space-2) var(--nb-space-3);
   border-bottom: 1px solid var(--nb-border);
   color: var(--nb-faint);
@@ -210,8 +230,39 @@ p {
   gap: var(--nb-space-2);
 }
 
-.worker-models {
+.worker-list a {
+  color: var(--nb-on-surface);
+  text-decoration: none;
+}
+
+.worker-list a:hover {
+  color: var(--nb-primary);
+}
+
+/* Key/value detail block (worker detail). */
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--nb-space-2) var(--nb-space-4);
+  margin: 0;
+  font-size: var(--nb-text-sm);
+}
+
+.details dt {
   color: var(--nb-faint);
+  text-transform: uppercase;
+  letter-spacing: var(--nb-tracking-wide);
+  font-size: var(--nb-text-xs);
+  align-self: baseline;
+}
+
+.details dd {
+  margin: 0;
+}
+
+.model-list {
+  margin: 0;
+  padding-left: 1.2em;
 }
 
 /* One-time secret display: selectable, lilac-framed. */

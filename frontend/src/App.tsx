@@ -17,8 +17,8 @@ import { JobList } from './JobList'
 import { BOUNCE_KEY, Login } from './Login'
 import { Setup } from './Setup'
 import { TopNav } from './TopNav'
-import { useView } from './useView'
-import { WorkerList } from './WorkerList'
+import { useRoute } from './useRoute'
+import { WorkersView } from './WorkersView'
 
 const POLL_INTERVAL_MS = 3000
 
@@ -36,7 +36,7 @@ function App() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [workers, setWorkers] = useState<Worker[]>([])
   const [offline, setOffline] = useState(false)
-  const [view, navigate] = useView()
+  const [route, navigate] = useRoute()
   // undefined = status unknown (don't flash any screen before the first response)
   const [setup, setSetup] = useState<SetupStatus | undefined>()
   const [auth, setAuth] = useState<AuthStatus | undefined>()
@@ -104,7 +104,7 @@ function App() {
   return (
     <>
       <TopNav
-        view={view}
+        route={route}
         onNavigate={navigate}
         user={auth.user}
         isAdmin={isAdmin}
@@ -116,24 +116,22 @@ function App() {
             Backend unreachable — is the API server running? (<code>just dev-backend</code>)
           </Alert>
         )}
-        {view === 'admin' && isAdmin ? (
-          <Admin models={models} usrUrl={auth.sso?.usrUrl} />
-        ) : (
-          <>
-            <Card className="panel">
-              <section aria-labelledby="jobs-heading">
-                <h2 id="jobs-heading">Jobs</h2>
-                <JobForm onCreated={refresh} />
-                <JobList jobs={jobs} onChanged={refresh} />
-              </section>
-            </Card>
-            <Card className="panel">
-              <section aria-labelledby="workers-heading">
-                <h2 id="workers-heading">Workers</h2>
-                <WorkerList workers={workers} />
-              </section>
-            </Card>
-          </>
+        {route.view === 'admin' && isAdmin && <Admin models={models} usrUrl={auth.sso?.usrUrl} />}
+        {route.view === 'workers' && (
+          <WorkersView
+            workers={workers}
+            workerId={route.workerId}
+            onSelect={(workerId) => navigate({ view: 'workers', workerId })}
+          />
+        )}
+        {(route.view === 'jobs' || (route.view === 'admin' && !isAdmin)) && (
+          <Card className="panel">
+            <section aria-labelledby="jobs-heading">
+              <h2 id="jobs-heading">Jobs</h2>
+              <JobForm onCreated={refresh} />
+              <JobList jobs={jobs} onChanged={refresh} />
+            </section>
+          </Card>
         )}
       </main>
     </>
