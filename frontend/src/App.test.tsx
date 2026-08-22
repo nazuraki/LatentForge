@@ -56,6 +56,7 @@ beforeEach(() => {
   signedIn = null
   modelTags = {}
   sessionStorage.clear()
+  window.location.hash = ''
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -99,9 +100,9 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  it('renders the LatentForge heading', async () => {
+  it('renders the LatentForge brand in the top nav', async () => {
     render(<App />)
-    expect(await screen.findByRole('heading', { name: 'LatentForge' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'LatentForge' })).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument())
   })
 
@@ -150,17 +151,30 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument()
   })
 
-  it('shows the signed-in user with an account link to usr', async () => {
+  it('shows the signed-in user and an Account link to usr in the profile menu', async () => {
     authRequired = true
     identity = { email: adminUser.id, roles: ['admin'] }
     signedIn = adminUser
+    const user = userEvent.setup()
     render(<App />)
-    expect(await screen.findByText(/signed in as admin@example.com/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /manage account/i })).toHaveAttribute('href', USR_URL)
+    await user.click(await screen.findByRole('button', { name: /profile menu/i }))
+    expect(screen.getByText(/signed in as/i)).toHaveTextContent('admin@example.com')
+    expect(screen.getByRole('menuitem', { name: 'Account' })).toHaveAttribute('href', USR_URL)
     await waitFor(() => expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument())
   })
 
-  it('opens the admin panel with model tags', async () => {
+  it('hides the Admin entry from non-admin users', async () => {
+    authRequired = true
+    identity = { email: 'u@example.com', roles: ['user'] }
+    signedIn = { id: 'u@example.com', username: 'u@example.com', role: 'user', tags: [] }
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /settings/i }))
+    expect(screen.getByRole('menuitem', { name: 'Workers' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Admin' })).not.toBeInTheDocument()
+  })
+
+  it('navigates to the admin view from the settings menu and back via the brand', async () => {
     authRequired = true
     identity = { email: adminUser.id, roles: ['admin'] }
     signedIn = adminUser
@@ -168,17 +182,46 @@ describe('App', () => {
     modelTags = { 'sdxl-1.0': ['nsfw'] }
     const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: 'Admin' }))
+    await user.click(await screen.findByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('menuitem', { name: 'Admin' }))
     expect(await screen.findByLabelText('Tags for model sdxl-1.0')).toHaveValue('nsfw')
+    expect(window.location.hash).toBe('#/admin')
+    expect(screen.queryByRole('heading', { name: 'Jobs' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'LatentForge' }))
+    expect(await screen.findByRole('heading', { name: 'Jobs' })).toBeInTheDocument()
   })
 
-  it('lists jobs and workers from the API', async () => {
+  it('lists jobs from the API', async () => {
     jobs = [job({ id: 'j1', status: 'running', workerId: 'w1' })]
-    workers = [worker]
     render(<App />)
     expect(await screen.findByText('prompt for j1')).toBeInTheDocument()
     expect(screen.getByText('running')).toBeInTheDocument()
-    expect(screen.getByText('gpu-1')).toBeInTheDocument()
+  })
+
+  it('shows workers in their own view with a detail page listing models', async () => {
+    workers = [worker, { ...worker, id: 'w2', name: 'gpu-2', online: false, models: [] }]
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('menuitem', { name: 'Workers' }))
+    expect(await screen.findByRole('heading', { name: 'Workers' })).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/workers')
+    expect(screen.getByText('online')).toBeInTheDocument()
+    expect(screen.getByText('offline')).toBeInTheDocument()
+    expect(screen.queryByText('sdxl-1.0')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'gpu-1' }))
+    expect(await screen.findByRole('heading', { name: 'gpu-1' })).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/workers/w1')
+    expect(screen.getByText('sdxl-1.0')).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: /all workers/i }))
+    expect(await screen.findByRole('heading', { name: 'Workers' })).toBeInTheDocument()
+  })
+
+  it('opens a worker detail directly from its hash', async () => {
+    workers = [worker]
+    window.location.hash = '#/workers/w1'
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'gpu-1' })).toBeInTheDocument()
     expect(screen.getByText('sdxl-1.0')).toBeInTheDocument()
   })
 
