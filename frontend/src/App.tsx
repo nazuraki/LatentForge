@@ -1,4 +1,4 @@
-import { Alert, Button, Card } from '@nazuraki/ui-react'
+import { Alert, Card } from '@nazuraki/ui-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Admin } from './Admin'
 import {
@@ -16,6 +16,8 @@ import { JobForm } from './JobForm'
 import { JobList } from './JobList'
 import { BOUNCE_KEY, Login } from './Login'
 import { Setup } from './Setup'
+import { TopNav } from './TopNav'
+import { useView } from './useView'
 import { WorkerList } from './WorkerList'
 
 const POLL_INTERVAL_MS = 3000
@@ -34,7 +36,7 @@ function App() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [workers, setWorkers] = useState<Worker[]>([])
   const [offline, setOffline] = useState(false)
-  const [showAdmin, setShowAdmin] = useState(false)
+  const [view, navigate] = useView()
   // undefined = status unknown (don't flash any screen before the first response)
   const [setup, setSetup] = useState<SetupStatus | undefined>()
   const [auth, setAuth] = useState<AuthStatus | undefined>()
@@ -100,46 +102,41 @@ function App() {
   const models = [...new Set(workers.flatMap((w) => w.models))]
 
   return (
-    <main>
-      <h1 className="brand">LatentForge</h1>
-      <p className="tagline">
-        Distributed image generation with workflow automation and managed assets.
-      </p>
-      {(auth.authRequired || isAdmin) && (
-        <p className="topbar">
-          {auth.user && <span>Signed in as {auth.user.username}</span>}
-          {isAdmin && (
-            <Button type="button" onClick={() => setShowAdmin(!showAdmin)}>
-              {showAdmin ? 'Hide admin' : 'Admin'}
-            </Button>
-          )}
-          {auth.sso && (
-            <a className="nb-btn" href={auth.sso.usrUrl}>
-              Manage account
-            </a>
-          )}
-        </p>
-      )}
-      {offline && (
-        <Alert variant="warning" className="panel">
-          Backend unreachable — is the API server running? (<code>just dev-backend</code>)
-        </Alert>
-      )}
-      {showAdmin && isAdmin && <Admin models={models} usrUrl={auth.sso?.usrUrl} />}
-      <Card className="panel">
-        <section aria-labelledby="jobs-heading">
-          <h2 id="jobs-heading">Jobs</h2>
-          <JobForm onCreated={refresh} />
-          <JobList jobs={jobs} onChanged={refresh} />
-        </section>
-      </Card>
-      <Card className="panel">
-        <section aria-labelledby="workers-heading">
-          <h2 id="workers-heading">Workers</h2>
-          <WorkerList workers={workers} />
-        </section>
-      </Card>
-    </main>
+    <>
+      <TopNav
+        view={view}
+        onNavigate={navigate}
+        user={auth.user}
+        isAdmin={isAdmin}
+        accountUrl={auth.sso?.usrUrl}
+      />
+      <main>
+        {offline && (
+          <Alert variant="warning" className="panel">
+            Backend unreachable — is the API server running? (<code>just dev-backend</code>)
+          </Alert>
+        )}
+        {view === 'admin' && isAdmin ? (
+          <Admin models={models} usrUrl={auth.sso?.usrUrl} />
+        ) : (
+          <>
+            <Card className="panel">
+              <section aria-labelledby="jobs-heading">
+                <h2 id="jobs-heading">Jobs</h2>
+                <JobForm onCreated={refresh} />
+                <JobList jobs={jobs} onChanged={refresh} />
+              </section>
+            </Card>
+            <Card className="panel">
+              <section aria-labelledby="workers-heading">
+                <h2 id="workers-heading">Workers</h2>
+                <WorkerList workers={workers} />
+              </section>
+            </Card>
+          </>
+        )}
+      </main>
+    </>
   )
 }
 
