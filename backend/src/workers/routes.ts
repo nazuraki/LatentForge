@@ -1,7 +1,7 @@
 import type { FastifyInstance, onRequestHookHandler } from 'fastify'
 import type { AssetStore } from '../assets/store.ts'
 import { InvalidTransitionError, type JobOutput, type JobStore } from '../jobs/store.ts'
-import type { UserStore } from '../users/store.ts'
+import type { AccessStore } from '../access/store.ts'
 import type { WorkerRegistration, WorkerStore } from './store.ts'
 
 const registerSchema = {
@@ -43,7 +43,7 @@ export function workerRoutes(
   jobs: JobStore,
   assets: AssetStore,
   onRequest: onRequestHookHandler[],
-  users: UserStore,
+  access: AccessStore,
   sessionAuth: onRequestHookHandler[],
 ) {
 
@@ -58,7 +58,7 @@ export function workerRoutes(
   app.get('/api/workers', { onRequest: sessionAuth }, (req) => {
     const user = req.user as NonNullable<typeof req.user>
     return {
-      workers: workers.list().map((w) => ({ ...w, models: users.filterModels(user, w.models) })),
+      workers: workers.list().map((w) => ({ ...w, models: access.filterModels(user, w.models) })),
     }
   })
 

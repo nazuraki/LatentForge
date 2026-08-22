@@ -4,13 +4,14 @@ import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyServerOptions } from 'fastify'
 import { assetRoutes } from './assets/routes.ts'
 import { AssetStore } from './assets/store.ts'
-import { requireBearerToken, requireResolvedBearerToken, requireSession } from './auth.ts'
+import { accessRoutes } from './access/routes.ts'
+import { AccessStore } from './access/store.ts'
+import { requireBearerToken, requireResolvedBearerToken, requireUser } from './auth.ts'
 import { jobRoutes } from './jobs/routes.ts'
 import { JobStore } from './jobs/store.ts'
 import { settingsRoutes } from './settings/routes.ts'
 import { SettingsStore, WORKER_TOKEN_KEY } from './settings/store.ts'
-import { userRoutes } from './users/routes.ts'
-import { UserStore } from './users/store.ts'
+import type { SsoVerifier } from './sso.ts'
 import { workerRoutes } from './workers/routes.ts'
 import { WorkerStore } from './workers/store.ts'
 
@@ -23,13 +24,18 @@ export interface AppConfig {
   /** Shared bearer token required on worker-facing endpoints. Unset = open (dev/tests). */
   workerToken?: string
   /**
-   * First-run setup + auth: when true, UI routes require a login session and
-   * POST /api/setup bootstraps the initial admin account (plus the worker
-   * token, unless one came from the environment — env always wins for the
-   * token). Gated routes return 503 until setup completes, so a production
-   * server is never open pre-setup. Off (dev/tests) = fully open.
+   * First-run setup: when true and no env token is set, worker endpoints stay
+   * 503 until POST /api/setup stores a worker token, so a production server is
+   * never open to workers pre-setup. Off (dev/tests) = open.
    */
   requireSetup?: boolean
+  /**
+   * usr SSO verifier for browser-facing routes: identity comes from usr's
+   * `nz_id` cookie and access from `latentforge:*` roles. Unset = the browser
+   * side is open and every request acts as a local admin (dev/tests, or a
+   * LAN/VPN deploy without usr).
+   */
+  sso?: SsoVerifier
   /** Built frontend to serve (SPA fallback included). Served only if the directory exists. */
   staticDir?: string
 }
@@ -49,9 +55,9 @@ export function buildApp(opts: FastifyServerOptions = {}, config: AppConfig = {}
     ? new SettingsStore(join(config.dataDir, 'latentforge.db'))
     : new SettingsStore()
   const workers = new WorkerStore()
-  const users = config.dataDir
-    ? new UserStore(join(config.dataDir, 'latentforge.db'))
-    : new UserStore()
+  const access = config.dataDir
+    ? new AccessStore(join(config.dataDir, 'latentforge.db'))
+    : new AccessStore()
   const assets = new AssetStore(
     config.dataDir ? join(config.dataDir, 'assets') : resolve('data/assets'),
   )
@@ -62,7 +68,7 @@ export function buildApp(opts: FastifyServerOptions = {}, config: AppConfig = {}
   app.addHook('onClose', () => {
     jobs.close()
     settings.close()
-    users.close()
+    access.close()
   })
 
   const setupManaged = !config.workerToken && Boolean(config.requireSetup)
@@ -79,17 +85,17 @@ export function buildApp(opts: FastifyServerOptions = {}, config: AppConfig = {}
     app.log.warn('LATENTFORGE_WORKER_TOKEN unset — worker endpoints are unauthenticated')
   }
 
-  // UI routes require a login session whenever setup mode is on; an env-provided
-  // worker token covers workers only, never the browser side.
-  const authEnabled = Boolean(config.requireSetup)
-  const sessionAuth = [requireSession({ enabled: authEnabled, users })]
+  // Browser routes require a usr identity when SSO is configured; the worker
+  // token covers workers only, never the browser side.
+  if (!config.sso) app.log.warn('LATENTFORGE_USR_URL unset — browser endpoints are unauthenticated')
+  const userAuth = [requireUser(config.sso)]
 
   app.get('/api/health', () => ({ status: 'ok' }))
-  jobRoutes(app, jobs, users, sessionAuth)
-  workerRoutes(app, workers, jobs, assets, workerAuth, users, sessionAuth)
-  settingsRoutes(app, settings, users, { tokenManaged: setupManaged, authEnabled })
-  assetRoutes(app, assets, sessionAuth)
-  userRoutes(app, users, sessionAuth, authEnabled)
+  jobRoutes(app, jobs, access, userAuth)
+  workerRoutes(app, workers, jobs, assets, workerAuth, access, userAuth)
+  settingsRoutes(app, settings, { tokenManaged: setupManaged })
+  assetRoutes(app, assets, userAuth)
+  accessRoutes(app, access, userAuth, config.sso)
 
   if (config.staticDir && existsSync(config.staticDir)) {
     app.register(fastifyStatic, { root: resolve(config.staticDir) })

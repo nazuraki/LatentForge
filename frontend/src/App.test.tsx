@@ -2,7 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import type { Job, SetupStatus, User, Worker } from './api'
+import type { AuthStatus, Job, SetupStatus, User, Worker } from './api'
+import { BOUNCE_KEY } from './Login'
 
 function job(overrides: Partial<Job> & { id: string }): Job {
   return {
@@ -23,21 +24,23 @@ const worker: Worker = {
   lastSeenAt: '2026-08-10T12:00:00.000Z',
 }
 
-const adminUser: User = {
-  id: 'u1',
-  username: 'admin',
-  role: 'admin',
-  disabled: false,
-  tags: [],
-  createdAt: '2026-08-10T10:00:00.000Z',
+const adminUser: User = { id: 'admin@example.com', username: 'admin@example.com', role: 'admin', tags: [] }
+
+const USR_URL = 'https://usr.example.internal'
+const SSO: NonNullable<AuthStatus['sso']> = {
+  usrUrl: USR_URL,
+  app: 'latentforge',
+  refreshUrl: `${USR_URL}/api/auth/sso/refresh?return=x`,
 }
 
 let jobs: Job[]
 let workers: Worker[]
 let setupStatus: SetupStatus
 let authRequired: boolean
+/** The usr identity carried by the browser's cookie, if any. */
+let identity: AuthStatus['identity']
+/** The principal the server derives from it (null = no latentforge role). */
 let signedIn: User | null
-let users: User[]
 let modelTags: Record<string, string[]>
 
 function jsonResponse(body: unknown, status = 200) {
@@ -47,11 +50,12 @@ function jsonResponse(body: unknown, status = 200) {
 beforeEach(() => {
   jobs = []
   workers = []
-  setupStatus = { needed: false, workerTokenNeeded: false, adminNeeded: false }
+  setupStatus = { needed: false, workerTokenNeeded: false }
   authRequired = false
+  identity = null
   signedIn = null
-  users = [adminUser]
   modelTags = {}
+  sessionStorage.clear()
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -59,30 +63,18 @@ beforeEach(() => {
       const method = init?.method ?? 'GET'
       if (url === '/api/setup' && method === 'GET') return jsonResponse(setupStatus)
       if (url === '/api/setup' && method === 'POST') {
-        const body = JSON.parse(String(init?.body))
-        const hadToken = setupStatus.workerTokenNeeded
-        if (setupStatus.adminNeeded) signedIn = { ...adminUser, username: body.username }
-        setupStatus = { needed: false, workerTokenNeeded: false, adminNeeded: false }
-        return jsonResponse(hadToken ? { workerToken: 'generated-token-value' } : {}, 201)
+        setupStatus = { needed: false, workerTokenNeeded: false }
+        return jsonResponse({ workerToken: 'generated-token-value' }, 201)
       }
-      if (url === '/api/auth/me') {
+      if (url.startsWith('/api/auth/me')) {
         return jsonResponse({
           authRequired,
           authenticated: !authRequired || signedIn !== null,
           user: signedIn,
+          identity,
+          sso: authRequired ? SSO : null,
         })
       }
-      if (url === '/api/auth/login' && method === 'POST') {
-        const body = JSON.parse(String(init?.body))
-        if (body.password !== 'password123') return jsonResponse({ error: 'invalid credentials' }, 401)
-        signedIn = { ...adminUser, username: body.username }
-        return jsonResponse({ user: signedIn })
-      }
-      if (url === '/api/auth/logout' && method === 'POST') {
-        signedIn = null
-        return jsonResponse({ ok: true })
-      }
-      if (url === '/api/users' && method === 'GET') return jsonResponse({ users })
       if (url === '/api/model-tags' && method === 'GET') return jsonResponse({ models: modelTags })
       if (url === '/api/jobs' && method === 'GET') return jsonResponse({ jobs })
       if (url === '/api/jobs' && method === 'POST') {
@@ -113,66 +105,71 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument())
   })
 
-  it('walks through first-run setup (admin + token), shows the token once, then the dashboard', async () => {
-    setupStatus = { needed: true, workerTokenNeeded: true, adminNeeded: true }
-    authRequired = true
+  it('walks through first-run setup (worker token), shows the token once, then the dashboard', async () => {
+    setupStatus = { needed: true, workerTokenNeeded: true }
     const user = userEvent.setup()
     render(<App />)
     expect(await screen.findByRole('heading', { name: /welcome to latentforge/i })).toBeVisible()
 
-    await user.type(screen.getByLabelText(/admin username/i), 'admin')
-    await user.type(screen.getByLabelText(/admin password/i), 'password123')
-    await user.click(screen.getByRole('button', { name: /create admin/i }))
+    await user.click(screen.getByRole('button', { name: /generate token/i }))
     expect(await screen.findByText('generated-token-value')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /go to dashboard/i }))
     await waitFor(() => expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument())
-    expect(screen.getByText(/signed in as admin/i)).toBeInTheDocument()
   })
 
-  it('shows the login screen when auth is required and signs in', async () => {
+  it('bounces to usr when SSO is required and no identity cookie is present', async () => {
     authRequired = true
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...window.location, href: 'https://lf.example.internal/', assign })
+    render(<App />)
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(SSO.refreshUrl))
+    expect(sessionStorage.getItem(BOUNCE_KEY)).toBe('1')
+  })
+
+  it('offers a manual sign-in instead of looping after a fruitless bounce', async () => {
+    authRequired = true
+    sessionStorage.setItem(BOUNCE_KEY, '1')
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...window.location, href: 'https://lf.example.internal/', assign })
     const user = userEvent.setup()
     render(<App />)
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeVisible()
+    expect(screen.getByRole('alert')).toHaveTextContent(/without an identity cookie/i)
+    expect(assign).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: /sign in with usr/i }))
+    expect(assign).toHaveBeenCalledWith(SSO.refreshUrl)
+  })
 
-    await user.type(screen.getByLabelText('Username'), 'admin')
-    await user.type(screen.getByLabelText('Password'), 'password123')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
+  it('explains when the usr identity has no latentforge role', async () => {
+    authRequired = true
+    identity = { email: 'nobody@example.com', roles: [] }
+    render(<App />)
+    expect(await screen.findByText('nobody@example.com')).toBeInTheDocument()
+    expect(screen.getByText(/role in usr/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument()
+  })
+
+  it('shows the signed-in user with an account link to usr', async () => {
+    authRequired = true
+    identity = { email: adminUser.id, roles: ['admin'] }
+    signedIn = adminUser
+    render(<App />)
+    expect(await screen.findByText(/signed in as admin@example.com/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /manage account/i })).toHaveAttribute('href', USR_URL)
     await waitFor(() => expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument())
-    expect(screen.getByText(/signed in as admin/i)).toBeInTheDocument()
   })
 
-  it('shows an error on wrong credentials', async () => {
+  it('opens the admin panel with model tags', async () => {
     authRequired = true
-    const user = userEvent.setup()
-    render(<App />)
-    await user.type(await screen.findByLabelText('Username'), 'admin')
-    await user.type(screen.getByLabelText('Password'), 'wrong-password')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
-    expect(await screen.findByRole('alert')).toHaveTextContent(/invalid credentials/i)
-  })
-
-  it('signs out back to the login screen', async () => {
-    authRequired = true
+    identity = { email: adminUser.id, roles: ['admin'] }
     signedIn = adminUser
-    const user = userEvent.setup()
-    render(<App />)
-    await user.click(await screen.findByRole('button', { name: /sign out/i }))
-    expect(await screen.findByRole('heading', { name: /sign in/i })).toBeVisible()
-  })
-
-  it('opens the admin panel with users and model tags', async () => {
-    authRequired = true
-    signedIn = adminUser
-    users = [adminUser, { ...adminUser, id: 'u2', username: 'bob', role: 'user', tags: ['nsfw'] }]
     workers = [worker]
     modelTags = { 'sdxl-1.0': ['nsfw'] }
     const user = userEvent.setup()
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'Admin' }))
-    expect(await screen.findByText('bob')).toBeInTheDocument()
-    expect(screen.getByLabelText('Tags for model sdxl-1.0')).toHaveValue('nsfw')
+    expect(await screen.findByLabelText('Tags for model sdxl-1.0')).toHaveValue('nsfw')
   })
 
   it('lists jobs and workers from the API', async () => {

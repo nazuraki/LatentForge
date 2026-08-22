@@ -79,13 +79,10 @@ export function listWorkers(): Promise<{ workers: Worker[] }> {
 export interface SetupStatus {
   needed: boolean
   workerTokenNeeded: boolean
-  adminNeeded: boolean
 }
 
 export interface SetupRequest {
   workerToken?: string
-  username?: string
-  password?: string
 }
 
 export function getSetupStatus(): Promise<SetupStatus> {
@@ -96,65 +93,40 @@ export function completeSetup(body: SetupRequest): Promise<{ workerToken?: strin
   return request('/api/setup', { method: 'POST', body: JSON.stringify(body) })
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
+// ── Auth (usr SSO) ───────────────────────────────────────────────────────────
 
 export type Role = 'admin' | 'user'
 
+/** The signed-in caller as the server sees it (derived from usr's identity cookie). */
 export interface User {
   id: string
   username: string
   role: Role
-  disabled: boolean
   tags: string[]
-  createdAt: string
+}
+
+/** Verified usr identity, present even when it grants no latentforge access. */
+export interface Identity {
+  email: string
+  roles: string[]
 }
 
 export interface AuthStatus {
   authRequired: boolean
   authenticated: boolean
   user: User | null
+  identity: Identity | null
+  /** Present when the server is configured for usr SSO. */
+  sso: { usrUrl: string; app: string; refreshUrl: string | null } | null
 }
 
+/** `return` lets the server build the usr refresh URL that lands back here. */
 export function getAuthStatus(): Promise<AuthStatus> {
-  return request('/api/auth/me')
+  const params = new URLSearchParams({ return: window.location.href })
+  return request(`/api/auth/me?${params}`)
 }
 
-export function login(username: string, password: string): Promise<{ user: User }> {
-  return request('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
-}
-
-export function logout(): Promise<{ ok: boolean }> {
-  return request('/api/auth/logout', { method: 'POST' })
-}
-
-// ── Admin: users and model tags ──────────────────────────────────────────────
-
-export interface UserUpdate {
-  password?: string
-  role?: Role
-  disabled?: boolean
-  tags?: string[]
-}
-
-export function listUsers(): Promise<{ users: User[] }> {
-  return request('/api/users')
-}
-
-export function createUser(
-  username: string,
-  password: string,
-  role: Role,
-  tags: string[],
-): Promise<User> {
-  return request('/api/users', {
-    method: 'POST',
-    body: JSON.stringify({ username, password, role, ...(tags.length ? { tags } : {}) }),
-  })
-}
-
-export function updateUser(id: string, update: UserUpdate): Promise<User> {
-  return request(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(update) })
-}
+// ── Admin: model tags ────────────────────────────────────────────────────────
 
 export function getModelTags(): Promise<{ models: Record<string, string[]> }> {
   return request('/api/model-tags')

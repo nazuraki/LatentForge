@@ -4,8 +4,8 @@
 # docker-compose.yml builds from source and stays the dev entry point.
 #
 # Expects LATENTFORGE_WORKER_TOKEN (and, when the deployer's $HOME is not the
-# host user's, an absolute LATENTFORGE_MODELS_DIR) in the environment or a
-# `.env` next to the checkout root.
+# host user's, an absolute LATENTFORGE_MODELS_DIR; optionally LATENTFORGE_USR_URL
+# for browser SSO) in the environment or a `.env` next to the checkout root.
 services:
   latentforge:
     image: ghcr.io/nazuraki/latentforge:latest
@@ -13,6 +13,8 @@ services:
       - "${LATENTFORGE_PORT:-19526}:19526"
     environment:
       LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:-}
+      # usr SSO for browsers (see README "Authentication"); unset = open.
+      LATENTFORGE_USR_URL: ${LATENTFORGE_USR_URL:-}
     volumes:
       - latentforge-data:/data
     restart: unless-stopped
