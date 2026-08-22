@@ -17,6 +17,8 @@ audience.
 | `PORT`                     | `19526`              | Backend listen port                                                                              |
 | `LATENTFORGE_DATA_DIR`     | in-memory + `backend/data/assets` | Data root: SQLite DB at `<dir>/latentforge.db`, images under `<dir>/assets`        |
 | `LATENTFORGE_WORKER_TOKEN` | unset               | Shared bearer token required on worker endpoints. Optional everywhere: in production, leaving it unset enables first-run setup in the UI (token stored in the data volume); in dev, unset means open |
+| `LATENTFORGE_USR_URL`      | unset               | Public base URL of [usr](https://github.com/nazuraki/nazu/tree/main/apps/usr) (e.g. `https://usr.<parent domain>`). Set it and browsers authenticate with usr's cross-app SSO cookie; unset = the browser side is open (see [Authentication](#authentication)) |
+| `LATENTFORGE_USR_APP`      | `latentforge`       | Our app name in usr — the `<app>:` role prefix that grants access                                |
 | `LATENTFORGE_STATIC_DIR`   | unset               | Built frontend dir; if it exists, the backend serves it with SPA fallback                        |
 | `LATENTFORGE_MODELS_DIR`   | `~/.latentforge/models` | Worker checkpoint directory (`just worker` points it at `worker/models`)                     |
 | `LATENTFORGE_BACKEND_URL`  | `http://localhost:19526` | Worker: backend base URL (`--backend-url` wins). Set by compose for the containerized worker |
@@ -79,6 +81,25 @@ UI walks through setup — it generates the worker token and stores it in the da
 Until setup completes, worker endpoints refuse requests (they are never open in production).
 First visitor claims setup, so finish it right after installing. Re-running the installer
 updates to the latest image.
+
+### Authentication
+
+Two independent gates, each optional:
+
+- **Workers** — the shared bearer token (`LATENTFORGE_WORKER_TOKEN` or first-run setup).
+- **Browsers (`LATENTFORGE_USR_URL`)** — usr SSO. LatentForge keeps **no accounts of its
+  own**: users, roles, and sign-out live in usr. Browsers authenticate with the cross-app
+  `nz_id` cookie that usr sets on the shared parent domain; the backend verifies it offline
+  against usr's JWKS (cached 5 min, refetched on key rotation) and admits identities holding
+  any role in the `latentforge` app. `latentforge:admin` is the admin; every other
+  `latentforge:<tag>` role is a user grant that doubles as a **model-access tag** — admins
+  tag restricted models in the UI, and a user may run a model only if they hold every tag on
+  it (untagged models are open to every user). With no or an expired cookie the SPA bounces
+  to usr's `/api/auth/sso/refresh`, which re-mints from the live usr session (or shows usr's
+  login) and returns; a valid cookie without a `latentforge` role shows "no access" instead
+  of looping. Requires both apps under one parent domain behind the shared HTTPS edge with
+  usr's `USR_SSO_COOKIE_DOMAIN` set. Unset, the browser side is open — the original LAN/VPN
+  assumption.
 
 To deploy from a checkout instead, `just up` builds and starts the same stack locally.
 Pre-setting `LATENTFORGE_WORKER_TOKEN` in the environment (or a `.env` next to the compose

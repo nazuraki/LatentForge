@@ -1,18 +1,23 @@
 import { timingSafeEqual } from 'node:crypto'
 import type { onRequestHookHandler } from 'fastify'
-import type { Role, UserStore } from './users/store.ts'
+import { SSO_COOKIE, type Identity, type SsoVerifier } from './sso.ts'
 
-export interface SessionUser {
+export type Role = 'admin' | 'user'
+
+/** The caller on session-gated routes, derived from the usr identity. */
+export interface Principal {
+  /** usr email — also the job owner key. */
   id: string
   username: string
   role: Role
+  /** Model-access tags = the caller's latentforge roles (admins bypass tags anyway). */
   tags: string[]
 }
 
 declare module 'fastify' {
   interface FastifyRequest {
-    /** Set by requireSession on session-gated routes. */
-    user?: SessionUser
+    /** Set by requireUser on session-gated routes. */
+    user?: Principal
   }
 }
 
@@ -58,9 +63,7 @@ export function requireResolvedBearerToken(
   }
 }
 
-// ── Browser sessions ─────────────────────────────────────────────────────────
-
-export const SESSION_COOKIE = 'latentforge_session'
+// ── Browser identity (usr SSO) ───────────────────────────────────────────────
 
 /** Minimal Cookie-header parser — one well-known cookie, no dependency needed. */
 export function parseCookies(header: string | undefined): Record<string, string> {
@@ -73,48 +76,53 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out
 }
 
-/** Secure is set only over https so plain-http LAN deploys still get a cookie. */
-export function sessionCookie(token: string, expiresAt: Date, secure: boolean): string {
-  const secureAttr = secure ? '; Secure' : ''
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax${secureAttr}; Expires=${expiresAt.toUTCString()}`
-}
-
-export function clearSessionCookie(secure: boolean): string {
-  const secureAttr = secure ? '; Secure' : ''
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax${secureAttr}; Max-Age=0`
-}
-
-const OPEN_ADMIN: SessionUser = { id: 'local', username: 'local', role: 'admin', tags: [] }
+export const OPEN_ADMIN: Principal = { id: 'local', username: 'local', role: 'admin', tags: [] }
 
 /**
- * onRequest hook resolving the session cookie to `req.user`. Disabled (dev/
- * tests) = every request acts as a local admin, mirroring the open worker-token
- * mode. Enabled with no accounts yet = 503, so a production server is never
- * open pre-setup.
+ * A usr identity becomes a principal only if it holds a latentforge role:
+ * `admin` → admin; any other role → user, with every role doubling as a
+ * model-access tag. No role = no access.
  */
-export function requireSession(opts: { enabled: boolean; users: UserStore }): onRequestHookHandler {
+export function principalFor(identity: Identity): Principal | null {
+  if (identity.roles.length === 0) return null
+  return {
+    id: identity.email,
+    username: identity.email,
+    role: identity.roles.includes('admin') ? 'admin' : 'user',
+    tags: identity.roles,
+  }
+}
+
+/**
+ * onRequest hook resolving usr's `nz_id` cookie to `req.user`. No verifier
+ * (dev/tests, or a deploy without LATENTFORGE_USR_URL) = every request acts as
+ * a local admin, mirroring the open worker-token mode. Missing/invalid cookie
+ * = 401 (the SPA bounces to usr); valid identity without a role = 403.
+ */
+export function requireUser(sso: SsoVerifier | undefined): onRequestHookHandler {
   return (req, reply, done) => {
-    if (!opts.enabled) {
+    if (!sso) {
       req.user = OPEN_ADMIN
       done()
       return
     }
-    if (opts.users.count() === 0) {
-      reply.code(503).send({ error: 'setup required' })
-      return
-    }
-    const token = parseCookies(req.headers.cookie)[SESSION_COOKIE]
-    const user = token ? opts.users.userForSession(token) : undefined
-    if (!user) {
-      reply.code(401).send({ error: 'unauthorized' })
-      return
-    }
-    req.user = { id: user.id, username: user.username, role: user.role, tags: user.tags }
-    done()
+    sso.verify(parseCookies(req.headers.cookie)[SSO_COOKIE]).then((identity) => {
+      if (!identity) {
+        reply.code(401).send({ error: 'unauthorized' })
+        return
+      }
+      const principal = principalFor(identity)
+      if (!principal) {
+        reply.code(403).send({ error: 'no access' })
+        return
+      }
+      req.user = principal
+      done()
+    }, done)
   }
 }
 
-/** preHandler for admin-only routes; assumes requireSession ran first. */
+/** preHandler for admin-only routes; assumes requireUser ran first. */
 export const requireAdmin: onRequestHookHandler = (req, reply, done) => {
   if (req.user?.role !== 'admin') {
     reply.code(403).send({ error: 'admin only' })

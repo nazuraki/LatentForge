@@ -1,42 +1,20 @@
 import { Alert, Card } from '@nazuraki/ui-react'
-import { useCallback, useEffect, useState } from 'react'
-import { CreateUserForm } from './admin/CreateUserForm'
+import { useState } from 'react'
 import { ModelTagTable } from './admin/ModelTagTable'
-import { UserTable, type UserUpdate } from './admin/UserTable'
-import { listUsers, updateUser, type User } from './api'
 
 interface AdminProps {
   /** Models known to the connected workers, for the tag editor. */
   models: string[]
-  /** The signed-in admin (never editable here to avoid self-lockout confusion). */
-  selfId?: string
+  /** Where accounts and roles are managed (usr); shown as a pointer. */
+  usrUrl?: string
 }
 
-export function Admin({ models, selfId }: AdminProps) {
-  const [users, setUsers] = useState<User[]>([])
+/**
+ * Admin panel: model-access tags only. Users and their grants live in usr —
+ * a user's tags are their `latentforge:*` roles there.
+ */
+export function Admin({ models, usrUrl }: AdminProps) {
   const [error, setError] = useState<string | undefined>()
-
-  const refresh = useCallback(async () => {
-    try {
-      setUsers((await listUsers()).users)
-      setError(undefined)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'failed to load users')
-    }
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
-
-  async function apply(id: string, update: UserUpdate) {
-    try {
-      await updateUser(id, update)
-      await refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'update failed')
-    }
-  }
 
   return (
     <Card className="panel">
@@ -47,13 +25,12 @@ export function Admin({ models, selfId }: AdminProps) {
             {error}
           </Alert>
         )}
-        <h3>Users</h3>
-        <UserTable users={users} selfId={selfId} onApply={apply} />
-        <CreateUserForm onCreated={refresh} onError={setError} />
         <h3>Model access tags</h3>
         <p>
-          Tag a model to restrict it; users need every tag on a model granted to run it. Untagged
-          models are open to everyone.
+          Tag a model to restrict it; a user needs every tag on a model to run it. Tags are{' '}
+          <code>latentforge:&lt;tag&gt;</code> roles granted in{' '}
+          {usrUrl ? <a href={usrUrl}>usr</a> : 'usr'} (<code>latentforge:admin</code> bypasses tags).
+          Untagged models are open to every user.
         </p>
         <ModelTagTable models={models} onError={setError} />
       </section>

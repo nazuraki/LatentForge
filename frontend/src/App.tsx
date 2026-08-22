@@ -7,24 +7,28 @@ import {
   getSetupStatus,
   listJobs,
   listWorkers,
-  logout,
   type AuthStatus,
   type Job,
   type SetupStatus,
-  type User,
   type Worker,
 } from './api'
 import { JobForm } from './JobForm'
 import { JobList } from './JobList'
-import { Login } from './Login'
+import { BOUNCE_KEY, Login } from './Login'
 import { Setup } from './Setup'
 import { WorkerList } from './WorkerList'
 
 const POLL_INTERVAL_MS = 3000
 
 // Unreachable backend: show the dashboard, which has the offline banner.
-const OFFLINE_SETUP: SetupStatus = { needed: false, workerTokenNeeded: false, adminNeeded: false }
-const OFFLINE_AUTH: AuthStatus = { authRequired: false, authenticated: true, user: null }
+const OFFLINE_SETUP: SetupStatus = { needed: false, workerTokenNeeded: false }
+const OFFLINE_AUTH: AuthStatus = {
+  authRequired: false,
+  authenticated: true,
+  user: null,
+  identity: null,
+  sso: null,
+}
 
 function App() {
   const [jobs, setJobs] = useState<Job[]>([])
@@ -51,9 +55,10 @@ function App() {
       setWorkers(workersRes.workers)
       setOffline(false)
     } catch (err) {
-      // An expired or revoked session bounces back to the login screen.
-      if (err instanceof ApiError && err.status === 401) {
-        setAuth((a) => a && { ...a, authenticated: false, user: null })
+      // An expired `nz_id` (401) or revoked role (403) mid-session: re-check
+      // auth so the SPA bounces to usr (or explains) instead of showing errors.
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        setAuth(await getAuthStatus().catch(() => OFFLINE_AUTH))
         return
       }
       setOffline(true)
@@ -64,20 +69,12 @@ function App() {
 
   useEffect(() => {
     if (!ready) return
+    // A successful round trip through usr clears the bounce guard.
+    sessionStorage.removeItem(BOUNCE_KEY)
     refresh()
     const timer = setInterval(refresh, POLL_INTERVAL_MS)
     return () => clearInterval(timer)
   }, [refresh, ready])
-
-  async function handleLogout() {
-    await logout().catch(() => undefined)
-    setShowAdmin(false)
-    setAuth((a) => a && { ...a, authenticated: false, user: null })
-  }
-
-  function handleLoggedIn(user: User) {
-    setAuth((a) => a && { ...a, authenticated: true, user })
-  }
 
   if (setup === undefined || auth === undefined) return null
 
@@ -85,7 +82,7 @@ function App() {
     return (
       <main className="narrow">
         <h1 className="brand">LatentForge</h1>
-        <Setup status={setup} onDone={loadStatus} />
+        <Setup onDone={loadStatus} />
       </main>
     )
   }
@@ -94,7 +91,7 @@ function App() {
     return (
       <main className="narrow">
         <h1 className="brand">LatentForge</h1>
-        <Login onLoggedIn={handleLoggedIn} />
+        <Login status={auth} />
       </main>
     )
   }
@@ -116,10 +113,10 @@ function App() {
               {showAdmin ? 'Hide admin' : 'Admin'}
             </Button>
           )}
-          {auth.authRequired && (
-            <Button type="button" onClick={handleLogout}>
-              Sign out
-            </Button>
+          {auth.sso && (
+            <a className="nb-btn" href={auth.sso.usrUrl}>
+              Manage account
+            </a>
           )}
         </p>
       )}
@@ -128,7 +125,7 @@ function App() {
           Backend unreachable — is the API server running? (<code>just dev-backend</code>)
         </Alert>
       )}
-      {showAdmin && isAdmin && <Admin models={models} selfId={auth.user?.id} />}
+      {showAdmin && isAdmin && <Admin models={models} usrUrl={auth.sso?.usrUrl} />}
       <Card className="panel">
         <section aria-labelledby="jobs-heading">
           <h2 id="jobs-heading">Jobs</h2>

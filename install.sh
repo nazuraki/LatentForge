@@ -124,6 +124,8 @@ services:
       - "$PORT:19526"
     environment:
       LATENTFORGE_WORKER_TOKEN: \${LATENTFORGE_WORKER_TOKEN:-}
+      # Optional usr SSO for browsers (set LATENTFORGE_USR_URL in .env).
+      LATENTFORGE_USR_URL: \${LATENTFORGE_USR_URL:-}
     volumes:
       - latentforge-data:/data
     restart: unless-stopped

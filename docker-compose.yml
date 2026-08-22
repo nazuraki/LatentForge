@@ -8,6 +8,11 @@ services:
       # Leave unset for zero config — the UI prompts on first visit and stores
       # it in the data volume.
       LATENTFORGE_WORKER_TOKEN: ${LATENTFORGE_WORKER_TOKEN:-}
+      # Optional: public base URL of usr (e.g. https://usr.<parent domain>).
+      # Set it and browsers authenticate with usr's cross-app SSO cookie
+      # (`nz_id`, verified against usr's JWKS); access requires a role in the
+      # `latentforge` app. Unset = browser side open (LAN/VPN). See README.
+      LATENTFORGE_USR_URL: ${LATENTFORGE_USR_URL:-}
     volumes:
       - latentforge-data:/data
     restart: unless-stopped

@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, onRequestHookHandler } from 'fastify'
-import type { UserStore } from '../users/store.ts'
+import type { AccessStore } from '../access/store.ts'
 import { InvalidTransitionError, JobStore, type Job, type JobRequest, type JobStatus } from './store.ts'
 
 const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'canceled'] as const
@@ -37,7 +37,7 @@ function visibleTo(job: Job, req: FastifyRequest): boolean {
 export function jobRoutes(
   app: FastifyInstance,
   store: JobStore,
-  users: UserStore,
+  access: AccessStore,
   sessionAuth: onRequestHookHandler[],
 ) {
   app.post<{ Body: JobRequest }>(
@@ -46,7 +46,7 @@ export function jobRoutes(
     async (req, reply) => {
       const user = req.user as NonNullable<typeof req.user>
       // Server-side access enforcement — the filtered picker is just convenience.
-      if (req.body.model && !users.canUseModel(user, req.body.model)) {
+      if (req.body.model && !access.canUseModel(user, req.body.model)) {
         return reply.code(403).send({ error: `model not allowed: ${req.body.model}` })
       }
       const job = store.create(req.body, user.id)
