@@ -1,5 +1,8 @@
 # LatentForge — Distributed image generation with workflow automation and managed assets
 
+mod backend 'backend/Justfile'
+mod frontend 'frontend/Justfile'
+
 # List available recipes
 default:
     @just --list
