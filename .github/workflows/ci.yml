@@ -5,48 +5,62 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  lint-typecheck:
-    name: Lint & typecheck (${{ matrix.dir }})
+  lint:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        dir: [frontend, backend]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v5
+      - uses: extractions/setup-just@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
       - run: npm ci
-        working-directory: ${{ matrix.dir }}
-      - run: npm run lint
-        working-directory: ${{ matrix.dir }}
-      - run: npm run typecheck
-        working-directory: ${{ matrix.dir }}
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - run: just lint
+      - run: just typecheck
+
+  test-package:
+    name: test (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: extractions/setup-just@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ matrix.package }}
+      - run: just ${{ matrix.package }} test
 
   test:
-    name: Test (${{ matrix.dir }})
+    needs: test-package
+    if: always()
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        dir: [frontend, backend]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
-      - run: npm ci
-        working-directory: ${{ matrix.dir }}
-      - run: npm run test
-        working-directory: ${{ matrix.dir }}
+      - run: test "${{ needs.test-package.result }}" = success
 
   docker:
-    name: Docker build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - run: docker build -t latentforge:ci .
+      - uses: extractions/setup-just@v4
+      - run: just docker-build

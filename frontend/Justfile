@@ -1,0 +1,47 @@
+# LatentForge frontend — React app (module of the root Justfile: `just frontend <recipe>`)
+
+# List available recipes
+default:
+    @just --list
+
+# Install dependencies
+install:
+    npm install
+
+# Build and serve the production bundle
+run:
+    npm run build && npm run preview
+
+# Run the dev server (proxies /api to the backend)
+dev:
+    npm run dev
+
+# Build
+build:
+    npm run build
+
+# Run all checks (lint + typecheck + test)
+check: lint typecheck test
+
+# Lint (read-only)
+lint:
+    npm run lint
+
+# Fix lint issues
+fix:
+    npm run fix
+
+# Type-check
+typecheck:
+    npm run typecheck
+
+# Run tests
+test:
+    npm run test
+
+# Remove build artifacts and node_modules
+clean:
+    rm -rf dist node_modules
+
+# Reinstall from scratch
+fresh: clean install
